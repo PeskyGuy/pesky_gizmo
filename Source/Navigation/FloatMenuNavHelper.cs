@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using RimWorld;
@@ -42,13 +43,14 @@ namespace PeskyGizmo
             if (_index < 0 || _index >= _options.Count) return;
             var opt = _options[_index];
             if (opt.Disabled) { HapticManager.UI_InvalidAction(); return; }
-            try { opt.action?.Invoke(); } catch { }
+            try { opt.action?.Invoke(); }
+            catch { /* FloatMenu action from third-party mod may throw; safe to suppress */ }
             _trackedMenu?.Close();
             _trackedMenu = null;
             HapticManager.UI_Confirm();
         }
 
-        [HarmonyPatch(typeof(FloatMenu), MethodType.Constructor)]
+        [HarmonyPatch(typeof(FloatMenu), MethodType.Constructor, new Type[] { typeof(List<FloatMenuOption>) })]
         public static class Patch_FloatMenu_Ctor
         {
             public static void Postfix(FloatMenu __instance, List<FloatMenuOption> options)

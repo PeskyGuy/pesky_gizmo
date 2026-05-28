@@ -21,7 +21,6 @@ namespace PeskyGizmo
     {
         private static bool _wasLoading;
         private static bool _mapWasSafe;
-        private static Vector2 _lastSyncedCursorPos;
 
         public static void SharedPostfix()
         {
@@ -30,7 +29,6 @@ namespace PeskyGizmo
                 _wasLoading = true;
                 if (ControllerState.UsingController)
                 {
-                    GizmoMod.SetVisibleCursor();
                     UnityEngine.Cursor.visible = true;
                 }
                 return;
@@ -49,11 +47,14 @@ namespace PeskyGizmo
             {
                 if (UnityEngine.Cursor.visible == false)
                 {
-                    GizmoMod.SetVisibleCursor();
                     UnityEngine.Cursor.visible = true;
                 }
                 return;
             }
+
+            // Calibration window owns all controller input while open.
+            if (Find.WindowStack.IsOpen<CalibrationWindow>())
+                return;
 
             // Detect manual mouse movement or physical click to switch back to mouse mode.
             // Simulated clicks coming from the controller (ReticleController -> SendInput)
@@ -101,7 +102,7 @@ namespace PeskyGizmo
                         // so any noisy controller input (drift, held buttons) doesn't yank us back.
                         ControllerState.MouseModeLockoutUntil = Time.unscaledTime + 1.0f;
                         ControllerState.UsingController = false;
-                        GizmoMod.SetVisibleCursor();
+                        UnityEngine.Cursor.visible = true;
                         ControllerState.LastMousePos = hardwarePos;
                         Log.Message($"[Gizmo] Mouse takeover (distSq={distSq:F0}, click={mouseClicked}).");
                         return;
@@ -136,35 +137,22 @@ namespace PeskyGizmo
             {
                 bool mapSafe = ControllerDetector.IsMapSafeForInput();
 
-                // Always show the reticle as the OS hardware cursor. The OS draws it on top
-                // of every UI layer (windows, tooltips, menus) without us needing to fight
-                // the GUI stack — this is the same approach RimWorld's vanilla CustomCursor uses.
                 if (mapSafe != _mapWasSafe)
                 {
                     _mapWasSafe = mapSafe;
-                    Log.Message($"[Gizmo] mapSafe={mapSafe}.");
+                    if (GizmoMod.Settings.showDebugOverlay)
+                        Log.Message($"[Gizmo] mapSafe={mapSafe}.");
                 }
-                if (ControllerState.CursorScreenPos != _lastSyncedCursorPos || ZoomMode.Active)
-                {
-                    if (!NavController.AnyCursorHidingPanelOpen)
-                    {
-                        MouseSimulation.SyncWindowsCursor();
-                        _lastSyncedCursorPos = ControllerState.CursorScreenPos;
-                    }
-                }
+
+                UnityEngine.Cursor.visible = false;
+                // Bypassing = true permanently: RimWorld always sees the real OS cursor.
+                // We position the OS cursor via SetCursorPos instead of patching Input.mousePosition.
+                // Mouse takeover detection temporarily flips bypass to read hardware delta.
+                Patch_Input_Global.Bypassing = true;
 
                 ConsoleHUD.HandleInput();
                 NavHelper.Tick();
                 NavMenu.Tick();
-
-                if (NavController.IsCustomUIActive)
-                {
-                    CursorHelper.SetInvisible();
-                }
-                else
-                {
-                    GizmoMod.SetInvisibleCursor();
-                }
 
                 // Start button → toggle the in-game ESC menu (same as pressing Escape).
                 if (ControllerState.ButtonStartEdge && Current.ProgramState == ProgramState.Playing)
@@ -184,7 +172,8 @@ namespace PeskyGizmo
                 // Skip entirely if ConsoleHUD already consumed B (e.g. InspectPanel backing
                 // out of Content mode), so we don't double-close the underlying window.
                 bool bConsumedByCancel = false;
-                if (ControllerState.ButtonBEdge && !ConsoleHUD.InputConsumed)
+                if (ControllerState.ButtonBEdge && !ConsoleHUD.InputConsumed
+                    && !Find.WindowStack.IsOpen<CalibrationWindow>())
                 {
                     // 1) Highest priority: leave the planet/world view back to the colony.
                     if (Current.ProgramState == ProgramState.Playing
@@ -236,7 +225,7 @@ namespace PeskyGizmo
             catch (System.Exception ex)
             {
                 Log.ErrorOnce($"[Gizmo] Crash in RootUpdate: {ex}", 561234);
-                GizmoMod.SetVisibleCursor();
+                UnityEngine.Cursor.visible = true;
             }
         }
     }

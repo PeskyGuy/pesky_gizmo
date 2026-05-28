@@ -4,7 +4,7 @@ namespace PeskyGizmo
     {
         public int Index;
         public int Count;
-        public int Cols;     // 1 for a flat list, N for a grid
+        public int Cols;
         public bool Wrap;
 
         public bool Up()    => Step(0, -1);
@@ -22,7 +22,6 @@ namespace PeskyGizmo
         }
 
         public void Reset() => Index = 0;
-
         public void Clamp() => Index = UnityEngine.Mathf.Clamp(Index, 0, UnityEngine.Mathf.Max(0, Count - 1));
 
         private bool Step(int dx, int dy)
@@ -50,6 +49,7 @@ namespace PeskyGizmo
             int newIndex = UnityEngine.Mathf.Clamp(newRow * Cols + newCol, 0, Count - 1);
             if (newIndex == Index) return false;
             Index = newIndex;
+            HapticManager.UI_DpadNav();
             return true;
         }
     }

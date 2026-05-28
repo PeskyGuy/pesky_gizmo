@@ -5,69 +5,6 @@ using RimWorld;
 
 namespace PeskyGizmo
 {
-    [StaticConstructorOnStartup]
-    public static class CursorHelper
-    {
-        private static readonly Texture2D ReticleCursor;
-        private static readonly Vector2 Hotspot;
-        private static readonly Texture2D EmptyCursor;
-
-        static CursorHelper()
-        {
-            const int size = 32;
-            ReticleCursor = LoadCursorTexture("UI/HexCursor", size) ?? new Texture2D(size, size, TextureFormat.ARGB32, false);
-            Hotspot = new Vector2(size * 0.5f, size * 0.5f);
-
-            EmptyCursor = new Texture2D(1, 1, TextureFormat.ARGB32, false);
-            EmptyCursor.SetPixel(0, 0, new Color(0, 0, 0, 0));
-            EmptyCursor.Apply();
-        }
-
-        private static Texture2D? LoadCursorTexture(string path, int size)
-        {
-            var src = ContentFinder<Texture2D>.Get(path, true);
-            if (src == null) return null;
-
-            var rt = RenderTexture.GetTemporary(size, size, 0, RenderTextureFormat.ARGB32);
-            var prev = RenderTexture.active;
-            try
-            {
-                Graphics.Blit(src, rt);
-                RenderTexture.active = rt;
-
-                var dst = new Texture2D(size, size, TextureFormat.ARGB32, false)
-                {
-                    filterMode = FilterMode.Bilinear,
-                    wrapMode = TextureWrapMode.Clamp
-                };
-                dst.ReadPixels(new Rect(0, 0, size, size), 0, 0);
-                dst.Apply();
-                return dst;
-            }
-            finally
-            {
-                RenderTexture.active = prev;
-                RenderTexture.ReleaseTemporary(rt);
-            }
-        }
-
-        public static void ApplyReticleCursor()
-        {
-            UnityEngine.Cursor.visible = true;
-            UnityEngine.Cursor.SetCursor(ReticleCursor, Hotspot, CursorMode.ForceSoftware);
-        }
-
-        public static void SetInvisible()
-        {
-            UnityEngine.Cursor.SetCursor(EmptyCursor, Vector2.zero, CursorMode.ForceSoftware);
-        }
-
-        public static void SetVisible()
-        {
-            UnityEngine.Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
-        }
-    }
-
     public class GizmoMod : Mod
     {
         public static GizmoMod? Instance { get; private set; }
@@ -94,9 +31,6 @@ namespace PeskyGizmo
 
             Log.Message("[Gizmo] Initialised.");
         }
-
-        public static void SetInvisibleCursor() => CursorHelper.ApplyReticleCursor();
-        public static void SetVisibleCursor() => CursorHelper.SetVisible();
 
         public override string SettingsCategory() => "Pesky's Gizmo";
 

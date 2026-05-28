@@ -3,4 +3,6 @@ obj/
 *.user
 *.suo
 .vs/
+Docs/
 Assemblies/*.pdb
+Sync-PeskyGizmo.ps1

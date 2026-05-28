@@ -1,7 +1,7 @@
 using UnityEngine;
 using Verse;
 
-namespace PeskyCommandable
+namespace PeskyGizmo
 {
     public enum GlyphSet { Xbox, PlayStation, Generic }
 
@@ -16,10 +16,8 @@ namespace PeskyCommandable
             {
                 if (_usingController == value) return;
 
-                // Block controller-mode re-entry while the user has just expressed mouse intent.
                 if (value && Time.unscaledTime < MouseModeLockoutUntil) return;
 
-                // Debounce only applies to controller-mode entry; exiting to mouse mode is always allowed.
                 if (value && Time.unscaledTime < ModeSwitchCooldown) return;
                 ModeSwitchCooldown = Time.unscaledTime + MODE_SWITCH_DEBOUNCE;
 
@@ -28,16 +26,15 @@ namespace PeskyCommandable
                 if (!_usingController)
                 {
                     UnityEngine.Cursor.lockState = CursorLockMode.None;
-                    // Cancel zoom mode — its center-lock only runs in controller mode,
-                    // otherwise the virtual cursor drifts off-center on next swap back.
                     ZoomMode.Exit();
                 }
-                Log.Message($"[Commandable] UsingController -> {value}");
+                if (GizmoMod.Settings.showDebugOverlay)
+                    Log.Message($"[Gizmo] UsingController {_prevUsingController}→{value} at t={Time.unscaledTime:F2}");
+                _prevUsingController = value;
             }
         }
+        private static bool _prevUsingController;
 
-        // When > Time.unscaledTime, InputMapper must not switch back to controller mode.
-        // Set whenever the user gives explicit mouse input (movement / click).
         public static float MouseModeLockoutUntil;
 
         public static bool ControllerModeEnabled => ControllerConnected && UsingController && ModeOverride != false;
@@ -59,16 +56,17 @@ namespace PeskyCommandable
 
         public static bool DpadUp, DpadDown, DpadLeft, DpadRight;
         public static bool DpadUpEdge, DpadDownEdge, DpadLeftEdge, DpadRightEdge;
+        public static bool DpadUpRepeat, DpadDownRepeat, DpadLeftRepeat, DpadRightRepeat;
         public static bool ButtonAEdge, ButtonBEdge, ButtonXEdge, ButtonYEdge;
         public static bool ButtonLBEdge, ButtonRBEdge;
         public static bool ButtonStartEdge, ButtonBackEdge;
         public static bool ButtonR3Edge, ButtonL3Edge;
+        public static bool ButtonLTEdge, ButtonRTEdge;
 
         public static bool IsSimulatingClick;
         public static float SimulatedClickCooldown;
         public static bool IsSyncingMouse;
 
-        // Debounce timer to prevent rapid mode switching
         public static float ModeSwitchCooldown;
         private const float MODE_SWITCH_DEBOUNCE = 0.5f;
 
@@ -83,15 +81,23 @@ namespace PeskyCommandable
         public static bool SimRightClickUp => !SimRightClick && _prevSimRight;
 
         private static bool _prevUp, _prevDown, _prevLeft, _prevRight;
+        private static float _upHoldTime, _downHoldTime, _leftHoldTime, _rightHoldTime;
+        private const float DPAD_INITIAL_DELAY = 0.35f;
+        private const float DPAD_REPEAT_INTERVAL = 0.08f;
+
         private static bool _prevA, _prevB, _prevX, _prevY;
         private static bool _prevLB, _prevRB;
         private static bool _prevStart, _prevBack;
         private static bool _prevR3, _prevL3;
+        private static bool _prevLT, _prevRT;
 
-        public static float CameraSensitivity => CommandableMod.Settings?.cameraSensitivity ?? 50f;
-        public static float CursorSensitivity => CommandableMod.Settings?.cursorSensitivity ?? 1200f;
-        public static float AimAssistStrength => CommandableMod.Settings?.aimAssistStrength ?? 0.5f;
-        public static float InnerDeadzone => CommandableMod.Settings?.innerDeadzone ?? 0.15f;
+        public static float ButtonBHeldDuration;
+        private static bool _prevBHold;
+
+        public static float CameraSensitivity => GizmoMod.Settings?.cameraSensitivity ?? 50f;
+        public static float CursorSensitivity => GizmoMod.Settings?.cursorSensitivity ?? 1200f;
+        public static float AimAssistStrength => GizmoMod.Settings?.aimAssistStrength ?? 0.5f;
+        public static float InnerDeadzone => GizmoMod.Settings?.innerDeadzone ?? 0.15f;
 
         public static void UpdateDpadEdges()
         {
@@ -100,56 +106,102 @@ namespace PeskyCommandable
             DpadLeftEdge = DpadLeft && !_prevLeft;
             DpadRightEdge = DpadRight && !_prevRight;
 
+            DpadUpRepeat = CheckRepeat(DpadUp, _prevUp, ref _upHoldTime);
+            DpadDownRepeat = CheckRepeat(DpadDown, _prevDown, ref _downHoldTime);
+            DpadLeftRepeat = CheckRepeat(DpadLeft, _prevLeft, ref _leftHoldTime);
+            DpadRightRepeat = CheckRepeat(DpadRight, _prevRight, ref _rightHoldTime);
+
             _prevUp = DpadUp;
             _prevDown = DpadDown;
             _prevLeft = DpadLeft;
             _prevRight = DpadRight;
 
-            if (CommandableMod.Settings != null)
+            if (GizmoMod.Settings != null)
             {
-                bool aDown = IsButtonDown(CommandableMod.Settings.btnA);
+                bool aDown = IsButtonDown(GizmoMod.Settings.btnA);
                 ButtonAEdge = aDown && !_prevA;
                 _prevA = aDown;
 
-                bool bDown = IsButtonDown(CommandableMod.Settings.btnB);
+                bool bDown = IsButtonDown(GizmoMod.Settings.btnB);
                 ButtonBEdge = bDown && !_prevB;
                 _prevB = bDown;
 
-                bool xDown = IsButtonDown(CommandableMod.Settings.btnX);
+                if (bDown) ButtonBHeldDuration += Time.unscaledDeltaTime;
+                else ButtonBHeldDuration = 0f;
+
+                bool xDown = IsButtonDown(GizmoMod.Settings.btnX);
                 ButtonXEdge = xDown && !_prevX;
                 _prevX = xDown;
 
-                bool yDown = IsButtonDown(CommandableMod.Settings.btnY);
+                bool yDown = IsButtonDown(GizmoMod.Settings.btnY);
                 ButtonYEdge = yDown && !_prevY;
                 _prevY = yDown;
 
-                bool lbDown = IsButtonDown(CommandableMod.Settings.btnLB);
+                bool lbDown = IsButtonDown(GizmoMod.Settings.btnLB);
                 ButtonLBEdge = lbDown && !_prevLB;
                 _prevLB = lbDown;
 
-                bool rbDown = IsButtonDown(CommandableMod.Settings.btnRB);
+                bool rbDown = IsButtonDown(GizmoMod.Settings.btnRB);
                 ButtonRBEdge = rbDown && !_prevRB;
                 _prevRB = rbDown;
 
-                bool startDown = IsButtonDown(CommandableMod.Settings.btnStart);
+                bool startDown = IsButtonDown(GizmoMod.Settings.btnStart);
                 ButtonStartEdge = startDown && !_prevStart;
                 _prevStart = startDown;
 
-                bool backDown = IsButtonDown(CommandableMod.Settings.btnBack);
+                bool backDown = IsButtonDown(GizmoMod.Settings.btnBack);
                 ButtonBackEdge = backDown && !_prevBack;
                 _prevBack = backDown;
 
-                bool r3Down = IsButtonDown(CommandableMod.Settings.btnR3);
+                bool r3Down = IsButtonDown(GizmoMod.Settings.btnR3);
                 ButtonR3Edge = r3Down && !_prevR3;
                 _prevR3 = r3Down;
 
-                bool l3Down = IsButtonDown(CommandableMod.Settings.btnL3);
+                bool l3Down = IsButtonDown(GizmoMod.Settings.btnL3);
                 ButtonL3Edge = l3Down && !_prevL3;
                 _prevL3 = l3Down;
+
+                bool ltDown = IsButtonDown(GizmoMod.Settings.btnLT);
+                ButtonLTEdge = ltDown && !_prevLT;
+                _prevLT = ltDown;
+
+                bool rtDown = IsButtonDown(GizmoMod.Settings.btnRT);
+                ButtonRTEdge = rtDown && !_prevRT;
+                _prevRT = rtDown;
             }
 
             _prevSimLeft = SimLeftClick;
             _prevSimRight = SimRightClick;
+        }
+
+        private static bool CheckRepeat(bool isDown, bool wasDown, ref float nextFireTime)
+        {
+            if (isDown && !wasDown)
+            {
+                nextFireTime = Time.unscaledTime + DPAD_INITIAL_DELAY;
+                return true;
+            }
+            if (!isDown)
+            {
+                return false;
+            }
+            if (Time.unscaledTime >= nextFireTime)
+            {
+                nextFireTime = Time.unscaledTime + DPAD_REPEAT_INTERVAL;
+                return true;
+            }
+            return false;
+        }
+
+        public static bool ButtonBHoldEdge
+        {
+            get
+            {
+                bool hold = ButtonBHeldDuration > 0.4f;
+                bool edge = hold && !_prevBHold;
+                _prevBHold = hold;
+                return edge;
+            }
         }
 
         public static bool IsButtonDown(int index)

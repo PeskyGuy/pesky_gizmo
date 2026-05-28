@@ -60,8 +60,6 @@ namespace PeskyGizmo
             IntPtr hwnd = GetActiveWindow();
             if (hwnd == IntPtr.Zero) return;
 
-            // CursorScreenPos is Unity screen-space (y=0 at bottom).
-            // ClientToScreen expects Windows client coords (y=0 at top), so flip Y.
             POINT pt = new POINT
             {
                 X = Mathf.RoundToInt(ControllerState.CursorScreenPos.x),
@@ -71,12 +69,10 @@ namespace PeskyGizmo
             ClientToScreen(hwnd, ref pt);
             SetCursorPos(pt.X, pt.Y);
 
-            // Record where the OS cursor was just placed so the mouse-takeover
-            // detection (which reads Input.mousePosition with Bypassing=true)
-            // sees a matching position.  Both are bottom-up Unity convention.
             ControllerState.IsSyncingMouse = true;
             ControllerState.LastMousePos = new Vector3(ControllerState.CursorScreenPos.x, ControllerState.CursorScreenPos.y, 0);
         }
+
 
         public static void SendLeftDown()
         {

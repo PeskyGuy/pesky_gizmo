@@ -58,7 +58,15 @@ namespace PeskyGizmo
             int stepNum = (int)_currentStep;
             int total = (int)Step.Done;
             if (stepNum > 0 && stepNum < total)
+            {
                 Widgets.Label(new Rect(0, 145, inRect.width, 24), $"Step {stepNum} of {total - 1}");
+                if (Widgets.ButtonText(new Rect(inRect.width - 120, 145, 100, 24), "Skip"))
+                {
+                    _debounce = Time.realtimeSinceStartup + DEBOUNCE_TIME;
+                    _currentStep++;
+                    _lastSeen = "";
+                }
+            }
 
             if (_currentStep == Step.Start)
             {
@@ -66,6 +74,7 @@ namespace PeskyGizmo
                 {
                     _usedButtons.Clear();
                     _currentStep = Step.PressA;
+                    _debounce = Time.realtimeSinceStartup + DEBOUNCE_TIME;
                 }
             }
             else if (_currentStep == Step.Done)
@@ -73,7 +82,7 @@ namespace PeskyGizmo
                 Widgets.Label(new Rect(0, 170, inRect.width, 60), "Calibration complete!");
                 if (Widgets.ButtonText(new Rect(0, inRect.height - 40, 200, 35), "Save & Close"))
                 {
-                    CommandableMod.Settings.Write();
+                    GizmoMod.Settings.Write();
                     Close();
                 }
             }
@@ -151,7 +160,7 @@ namespace PeskyGizmo
 
         private void SaveButton(int idx)
         {
-            var s = CommandableMod.Settings;
+            var s = GizmoMod.Settings;
             switch (_currentStep)
             {
                 case Step.PressA:     s.btnA = idx; break;
@@ -169,7 +178,7 @@ namespace PeskyGizmo
 
         private void SaveAxis(string name)
         {
-            var s = CommandableMod.Settings;
+            var s = GizmoMod.Settings;
             switch (_currentStep)
             {
                 case Step.PushLS_Up:    s.axisLS_Y = name; break;
@@ -181,14 +190,14 @@ namespace PeskyGizmo
 
         private void SaveTriggerButton(int idx)
         {
-            var s = CommandableMod.Settings;
+            var s = GizmoMod.Settings;
             if (_currentStep == Step.PullLT) s.btnLT = idx;
             else s.btnRT = idx;
         }
 
         private void SaveTriggerAxis(string name)
         {
-            var s = CommandableMod.Settings;
+            var s = GizmoMod.Settings;
             if (_currentStep == Step.PullLT) s.axisTR_L = name;
             else s.axisTR_R = name;
         }

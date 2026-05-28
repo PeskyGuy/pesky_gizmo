@@ -67,7 +67,8 @@ namespace PeskyGizmo
         public static void Tick()
         {
             Map? currentMap = null;
-            try { currentMap = Current.Game?.CurrentMap; } catch { }
+            try { currentMap = Current.Game?.CurrentMap; }
+            catch { /* Current.Game may be null during loading; safe to ignore */ }
 
             if (currentMap != _lastMap)
             {

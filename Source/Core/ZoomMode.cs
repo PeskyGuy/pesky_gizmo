@@ -17,15 +17,20 @@ namespace PeskyGizmo
     {
         public static bool Active { get; private set; }
         public static float EnteredTime { get; private set; }
+        private static Vector2 _savedCursorPos;
 
         public static void Toggle()
         {
             Active = !Active;
             EnteredTime = Time.unscaledTime;
+            if (Active)
+                _savedCursorPos = ControllerState.CursorScreenPos;
+            else
+                ControllerState.CursorScreenPos = _savedCursorPos;
             Messages.Message(
                 Active
-                    ? "[Commandable] Zoom mode ON — Right stick to zoom, R3 to exit."
-                    : "[Commandable] Zoom mode OFF.",
+                    ? "[Gizmo] Zoom mode ON — Right stick to zoom, R3 to exit."
+                    : "[Gizmo] Zoom mode OFF.",
                 MessageTypeDefOf.SilentInput, historical: false);
         }
 
@@ -33,6 +38,7 @@ namespace PeskyGizmo
         {
             if (!Active) return;
             Active = false;
+            ControllerState.CursorScreenPos = _savedCursorPos;
         }
     }
 }

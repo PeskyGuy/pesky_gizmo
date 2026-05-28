@@ -10,16 +10,13 @@ namespace PeskyGizmo
     public static class ReticleDrawer
     {
         private static readonly Texture2D HexOutlineTex;
-        private static readonly Texture2D DotTex;
 
-        private const float HEX_DRAW_SIZE = 44f;
-        private const float DOT_SIZE = 3f;
+        private const float HEX_DRAW_SIZE = 32f;
         private const float HALF_HEX = HEX_DRAW_SIZE * 0.5f;
         private const float GAP = 4f;
 
         private static readonly Color ReticleColor = new Color(1f, 1f, 1f, 0.95f);
         private static readonly Color ReticleHotColor = new Color(0.95f, 0.85f, 0.30f, 1f);
-        private static readonly Color ShadowColor = new Color(0f, 0f, 0f, 0.55f);
         private static readonly Color PromptBg = new Color(0.08f, 0.08f, 0.08f, 0.75f);
 
         static ReticleDrawer()
@@ -27,14 +24,10 @@ namespace PeskyGizmo
             var rawTex = ContentFinder<Texture2D>.Get("UI/HexCursor", true);
             if (rawTex != null)
             {
-                rawTex.filterMode = FilterMode.Point;
+                rawTex.filterMode = FilterMode.Bilinear;
                 rawTex.wrapMode = TextureWrapMode.Clamp;
             }
             HexOutlineTex = rawTex ?? new Texture2D(1, 1);
-
-            DotTex = new Texture2D(1, 1, TextureFormat.ARGB32, false) { filterMode = FilterMode.Point };
-            DotTex.SetPixel(0, 0, Color.white);
-            DotTex.Apply();
         }
 
         // INVARIANT: This file never checks ActivePanel, NavMenu.IsOpen, or any other
@@ -44,12 +37,12 @@ namespace PeskyGizmo
         {
             try
             {
-                bool cursorHidden = NavController.AnyCursorHidingPanelOpen;
+                bool cursorHidden = NavController.AnyCursorHidingPanelOpen || NavHelper.MenuNavModeActive;
 
-                Vector2 pos = new Vector2(
-                    ControllerState.CursorScreenPos.x / Prefs.UIScale,
-                    Verse.UI.screenHeight - (ControllerState.CursorScreenPos.y / Prefs.UIScale)
-                );
+                Vector2 rawPos = ControllerState.UsingController
+                    ? ControllerState.CursorScreenPos
+                    : (Vector2)Input.mousePosition;
+                Vector2 pos = new Vector2(rawPos.x / Prefs.UIScale, (Screen.height - rawPos.y) / Prefs.UIScale);
 
                 if (drawReticle && !cursorHidden)
                     DrawReticleAt(pos);
@@ -71,17 +64,13 @@ namespace PeskyGizmo
             bool hot = InspectPanel.IsActive;
             Color mainColor = hot ? ReticleHotColor : ReticleColor;
 
-            Rect hexRect = new Rect(pos.x - HALF_HEX, pos.y - HALF_HEX, HEX_DRAW_SIZE, HEX_DRAW_SIZE);
+            float w = HexOutlineTex.width * 0.5f;
+            float h = HexOutlineTex.height * 0.5f;
+            Rect hexRect = new Rect(pos.x - w * 0.5f, pos.y - h * 0.5f, w, h);
+
             Color prev = GUI.color;
-
             GUI.color = mainColor;
-            GUI.DrawTexture(hexRect, HexOutlineTex, ScaleMode.ScaleToFit, true);
-
-            Rect dotRect = new Rect(pos.x - DOT_SIZE * 0.5f, pos.y - DOT_SIZE * 0.5f, DOT_SIZE, DOT_SIZE);
-            GUI.color = ShadowColor;
-            GUI.DrawTexture(new Rect(dotRect.x + 1f, dotRect.y + 1f, dotRect.width, dotRect.height), DotTex);
-            GUI.color = mainColor;
-            GUI.DrawTexture(dotRect, DotTex);
+            GUI.DrawTexture(hexRect, HexOutlineTex);
             GUI.color = prev;
         }
 
@@ -128,10 +117,8 @@ namespace PeskyGizmo
                     if (selectedPawn != null && target != null
                         && ReticleController.IsAttackable(target, selectedPawn))
                     {
-                        bool armed = ReticleController.IsArmedAttackActive
-                                     && ReticleController.ArmedAttackTarget == target;
                         bool hostile = target.HostileTo(selectedPawn);
-                        string label = armed ? "Confirm" : (hostile ? "Attack" : "Force attack");
+                        string label = hostile ? "Attack" : "Interact";
                         DrawPrompt(pos + new Vector2(dist + 4f, 14f), "X", label);
                     }
                 }

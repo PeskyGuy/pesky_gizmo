@@ -42,6 +42,9 @@ namespace PeskyGizmo
 
         private static void HandleGlobalBack()
         {
+            if (Find.WindowStack.IsOpen<CalibrationWindow>())
+                return;
+
             if (ControllerState.ButtonBHoldEdge)
             {
                 NavController.CloseAll();
@@ -103,6 +106,20 @@ namespace PeskyGizmo
                 return;
             }
 
+            bool ltHeld = ControllerState.IsButtonDown(GizmoMod.Settings.btnLT);
+            if (ControllerState.ButtonYEdge && ltHeld && !OverlayMenu.IsOpen && Current.ProgramState == ProgramState.Playing)
+            {
+                OverlayMenu.Open();
+                InputConsumed = true;
+                return;
+            }
+
+            if (OverlayMenu.IsOpen)
+            {
+                OverlayMenu.HandleInput();
+                if (InputConsumed) return;
+            }
+
             if (InspectPanel.HasAmbient)
             {
                 InspectPanel.HandleAmbientInput();
@@ -126,7 +143,7 @@ namespace PeskyGizmo
                 }
             }
 
-            if (!InspectPanel.AmbientFocused && Find.TickManager != null)
+            if (!InspectPanel.AmbientFocused && !NavHelper.MenuNavModeActive && !OverlayMenu.IsOpen && Find.TickManager != null)
             {
                 var tm = Find.TickManager;
                 if (ControllerState.DpadRightEdge)
@@ -177,7 +194,7 @@ namespace PeskyGizmo
         {
             if (ActivePanel == ConsolePanel.Architect && Find.DesignatorManager?.SelectedDesignator != null)
                 return false;
-            return ActivePanel != ConsolePanel.None || NavMenu.IsOpen;
+            return ActivePanel != ConsolePanel.None || NavMenu.IsOpen || OverlayMenu.IsOpen;
         }
 
         public static void Draw()
@@ -186,6 +203,7 @@ namespace PeskyGizmo
 
             NavController.Draw();
             NavMenu.Draw();
+            OverlayMenu.Draw();
 
             if (ActivePanel == ConsolePanel.None && Current.ProgramState == ProgramState.Playing)
             {

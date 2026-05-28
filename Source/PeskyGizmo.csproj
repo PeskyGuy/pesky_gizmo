@@ -13,34 +13,39 @@
     <NoWarn>1591</NoWarn>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <RimWorldDir Condition="'$(RimWorldDir)' == ''">D:\SteamLibrary\steamapps\common\RimWorld</RimWorldDir>
+    <HarmonyDir Condition="'$(HarmonyDir)' == ''">F:\Coding\Refs\HarmonyRimWorld-2.4.2.0\Current</HarmonyDir>
+  </PropertyGroup>
+
   <ItemGroup>
     <Reference Include="Assembly-CSharp">
-      <HintPath>D:\SteamLibrary\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
 
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>D:\SteamLibrary\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
 
     <Reference Include="UnityEngine.InputLegacyModule">
-      <HintPath>D:\SteamLibrary\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+      <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
 
     <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>D:\SteamLibrary\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
+      <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
 
     <Reference Include="UnityEngine.TextRenderingModule">
-      <HintPath>D:\SteamLibrary\steamapps\common\RimWorld\RimWorldWin64_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
+      <HintPath>$(RimWorldDir)\RimWorldWin64_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
 
     <Reference Include="0Harmony">
-      <HintPath>F:\Coding\Refs\HarmonyRimWorld-2.4.2.0\Current\Assemblies\0Harmony.dll</HintPath>
+      <HintPath>$(HarmonyDir)\Assemblies\0Harmony.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>

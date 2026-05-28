@@ -14,6 +14,8 @@ namespace PeskyGizmo
             try
             {
                 NavHelper.RecordButton(rect, label, active);
+                if (NavHelper.MenuNavModeActive && NavHelper.IsNearSelected(rect))
+                    NavController.SnapCursorTo(rect);
             }
             catch { }
         }
@@ -39,6 +41,8 @@ namespace PeskyGizmo
             try
             {
                 NavHelper.RecordInvisibleButton(butRect);
+                if (NavHelper.MenuNavModeActive && NavHelper.IsNearSelected(butRect))
+                    NavController.SnapCursorTo(butRect);
             }
             catch { }
         }
@@ -65,6 +69,8 @@ namespace PeskyGizmo
             try
             {
                 NavHelper.RecordInvisibleButton(butRect);
+                if (NavHelper.MenuNavModeActive && NavHelper.IsNearSelected(butRect))
+                    NavController.SnapCursorTo(butRect);
             }
             catch { }
 

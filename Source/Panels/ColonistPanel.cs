@@ -3,7 +3,7 @@ using RimWorld;
 using UnityEngine;
 using Verse;
 
-namespace PeskyGizmoCommandable
+namespace PeskyGizmo
 {
     /// <summary>
     /// Colonist navigation panel — appears on the left side when the Stats panel
@@ -132,9 +132,6 @@ namespace PeskyGizmoCommandable
                     GUI.color = new Color(0.784f, 0.510f, 0.165f); // amber #c8822a
                     Widgets.DrawBox(row, 2);
                     GUI.color = Color.white;
-
-                    // Placeholder for cursor snap call - will be refined when NavController is implemented
-                    NavController.SnapCursorTo(row);
                 }
                 else
                 {

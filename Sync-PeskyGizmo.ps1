@@ -10,7 +10,7 @@ param(
     [switch]$Build
 )
 
-$Source  = "F:\Coding\Mods\pesky_gizmo"
+$Source = "F:\Coding\Mods\pesky_gizmo"
 $Release = "D:\SteamLibrary\steamapps\common\RimWorld\Mods\Pesky's Gizmo"
 
 if ($Build) {
@@ -25,7 +25,7 @@ if ($Build) {
 }
 
 $ExcludeFiles = "*.cs *.csproj *.sln *.user *.md *.ps1"
-$ExcludeDirs  = "Source Docs obj bin .git .vs"
+$ExcludeDirs = "Source Docs obj bin .git .vs"
 
 Write-Host "=== Pesky's Gizmo -- Release Sync ===" -ForegroundColor Cyan
 Write-Host "  From : $Source"

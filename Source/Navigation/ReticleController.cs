@@ -20,19 +20,12 @@ namespace PeskyGizmo
         private static float _lastSelectTime;
         private static Thing? _lastSelectedThing;
 
-        // Force-attack arm state. Friendly / neutral targets need a second X press
-        // inside the window to actually fire — prevents accidental friendly-fire.
-        public static Thing? ArmedAttackTarget { get; private set; }
-        private static float _armedAttackExpires;
-        public const float ARMED_ATTACK_WINDOW = 2.5f;
-        public static bool IsArmedAttackActive =>
-            ArmedAttackTarget != null && Time.unscaledTime < _armedAttackExpires;
-
         private static bool _prevAButton;
         private static bool _prevBButton;
         private static bool _prevXButton;
         private static bool _prevYButton;
         private static bool _prevRBButton;
+        private static bool _prevLBButton;
 
         private static bool _simulatingLeft;
         private static bool _simulatingRight;
@@ -91,16 +84,6 @@ namespace PeskyGizmo
             }
         }
 
-        private static bool IsCombatMode()
-        {
-            if (Current.Game == null || Find.CurrentMap == null) return false;
-            var sel = Find.Selector;
-            if (sel == null || sel.NumSelected == 0) return false;
-            return sel.SelectedObjectsListForReading.OfType<Pawn>()
-                .Any(p => p.IsColonistPlayerControlled && p.drafter != null
-                          && p.drafter.Drafted && !p.Dead && !p.Downed);
-        }
-
         private static void HandleButtons(bool xConsumed)
         {
             var s = GizmoMod.Settings;
@@ -113,175 +96,110 @@ namespace PeskyGizmo
             bool xDown = ControllerState.IsButtonDown(s.btnX);
             bool yDown = ControllerState.IsButtonDown(s.btnY);
             bool rbDown = ControllerState.IsButtonDown(s.btnRB);
+            bool lbDown = ControllerState.IsButtonDown(s.btnLB);
             bool ltHeld = ControllerState.IsButtonDown(s.btnLT);
 
-            bool combatMode = mapSafe && IsCombatMode()
-                && ConsoleHUD.ActivePanel == ConsolePanel.None && !NavMenu.IsOpen
-                && !overUI && !inspectContent;
-
-            if (combatMode)
+            // Universal mode: contextual smart-X + vanilla click simulation
+            if (xDown && !_prevXButton && TrySmartCombatAction())
             {
-                bool aEdge = aDown && !_prevAButton;
-                bool xEdge = xDown && !_prevXButton;
-                bool rbEdge = rbDown && !_prevRBButton;
-                bool yEdge = yDown && !_prevYButton;
-                var pawns = CombatCommands.DraftedSelected();
-                Pawn? lead = pawns.Count > 0 ? pawns[0] : null;
+                _prevXButton = xDown;
+                _prevAButton = aDown;
+                _prevBButton = bDown;
+                _prevYButton = yDown;
+                _prevRBButton = rbDown;
+                _prevLBButton = lbDown;
+                return;
+            }
 
-                if (aEdge && !ltHeld)
+            if (lbDown && !_prevLBButton) CycleColonist(false);
+            if (rbDown && !_prevRBButton) CycleColonist(true);
+
+            // A Button: Always Select (Left-Click)
+            if (aDown)
+            {
+                if (NavHelper.IsActive && NavHelper.HasSelection)
                 {
-                    CombatCommands.MoveTo(pawns, CurrentCell);
-                    SoundDefOf.Click.PlayOneShotOnCamera();
+                    // Handled by NavHelper A-press click simulation inside Widgets patches
                 }
-                if (aEdge && ltHeld)
+                else if (inspectContent && InspectPanel.CursorInsidePanel())
                 {
-                    CombatCommands.CoverMoveTo(pawns, CurrentCell);
-                    SoundDefOf.Click.PlayOneShotOnCamera();
-                }
-                if (xEdge && !ltHeld && lead != null)
-                {
-                    Thing? target = HoveredPawn ?? HoveredThing;
-                    if (target != null && IsAttackable(target, lead))
+                    if (!_prevAButton)
                     {
-                        bool isHostile = target.HostileTo(lead);
-                        bool armed = ArmedAttackTarget == target && IsArmedAttackActive;
-                        if (!isHostile && !armed)
-                        {
-                            ArmedAttackTarget = target;
-                            _armedAttackExpires = Time.unscaledTime + ARMED_ATTACK_WINDOW;
-                            SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
-                        }
-                        else
-                        {
-                            CombatCommands.AttackTarget(pawns, target);
-                            ArmedAttackTarget = null;
-                            SoundDefOf.Tick_High.PlayOneShotOnCamera();
-                        }
-                    }
-                    else if (ArmedAttackTarget != null)
-                    {
-                        ArmedAttackTarget = null;
+                        _simulatingLeft = true;
+                        ControllerState.IsSimulatingClick = true;
+                        ControllerState.SimulatedClickCooldown = Time.unscaledTime + 0.08f;
+                        MouseSimulation.SendLeftDown();
                     }
                 }
-                if (xEdge && ltHeld)
+                else if (xConsumed || overUI)
                 {
-                    CombatCommands.ToggleMelee();
-                    SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
+                    // Consumed by UI
                 }
-                if (rbEdge && !ltHeld && lead != null)
+                else if (!_prevAButton && Time.unscaledTime - _lastSelectTime < 0.4f && HoveredThing != null && HoveredThing == _lastSelectedThing)
                 {
-                    LocalTargetInfo target = HoveredThing != null
-                        ? new LocalTargetInfo(HoveredThing)
-                        : new LocalTargetInfo(CurrentCell);
-                    CombatCommands.UseCurrentAbility(lead, target);
+                    DoSelectSimilar(HoveredThing);
                 }
-                if (rbEdge && ltHeld && lead != null)
+                else
                 {
-                    CombatCommands.CycleAbility(lead);
-                }
-                if (yEdge && !ltHeld)
-                {
-                    DoDraft();
+                    if (!_prevAButton)
+                    {
+                        _simulatingLeft = true;
+                        ControllerState.IsSimulatingClick = true;
+                        ControllerState.SimulatedClickCooldown = Time.unscaledTime + 0.08f;
+                        MouseSimulation.SendLeftDown();
+                        
+                        _lastSelectTime = Time.unscaledTime;
+                        _lastSelectedThing = HoveredThing;
+                    }
                 }
             }
             else
             {
-                // Normal mode: contextual smart-X + vanilla click simulation
-                if (xDown && !_prevXButton && TrySmartCombatAction())
+                if (_simulatingLeft)
                 {
-                    _prevXButton = xDown;
-                    _prevAButton = aDown;
-                    _prevBButton = bDown;
-                    _prevYButton = yDown;
-                    _prevRBButton = rbDown;
-                    return;
+                    _simulatingLeft = false;
+                    ControllerState.IsSimulatingClick = _simulatingRight;
+                    if (_simulatingRight) ControllerState.SimulatedClickCooldown = Time.unscaledTime + 0.08f;
+                    MouseSimulation.SendLeftUp();
                 }
-
-                // A Button: Always Select (Left-Click)
-                if (aDown)
-                {
-                    if (NavHelper.IsActive && NavHelper.HasSelection)
-                    {
-                        // Handled by NavHelper A-press click simulation inside Widgets patches
-                    }
-                    else if (inspectContent && InspectPanel.CursorInsidePanel())
-                    {
-                        if (!_prevAButton)
-                        {
-                            _simulatingLeft = true;
-                            ControllerState.IsSimulatingClick = true;
-                            ControllerState.SimulatedClickCooldown = Time.unscaledTime + 0.08f;
-                            MouseSimulation.SendLeftDown();
-                        }
-                    }
-                    else if (xConsumed || overUI)
-                    {
-                        // Consumed by UI
-                    }
-                    else if (!_prevAButton && Time.unscaledTime - _lastSelectTime < 0.4f && HoveredThing != null && HoveredThing == _lastSelectedThing)
-                    {
-                        DoSelectSimilar(HoveredThing);
-                    }
-                    else
-                    {
-                        if (!_prevAButton)
-                        {
-                            _simulatingLeft = true;
-                            ControllerState.IsSimulatingClick = true;
-                            ControllerState.SimulatedClickCooldown = Time.unscaledTime + 0.08f;
-                            MouseSimulation.SendLeftDown();
-                            _lastSelectTime = Time.unscaledTime;
-                            _lastSelectedThing = HoveredThing;
-                        }
-                    }
-                }
-                else
-                {
-                    if (_simulatingLeft)
-                    {
-                        _simulatingLeft = false;
-                        ControllerState.IsSimulatingClick = _simulatingRight;
-                        if (_simulatingRight) ControllerState.SimulatedClickCooldown = Time.unscaledTime + 0.08f;
-                        MouseSimulation.SendLeftUp();
-                    }
-                }
-
-                // X Button: Always Interact/Move (Right-Click)
-                if (xDown)
-                {
-                    if (NavHelper.IsActive && NavHelper.HasSelection)
-                    {
-                        // Bypassed: NavHelper owns navigation/input
-                    }
-                    else if (!xConsumed && !overUI && !_prevXButton)
-                    {
-                        _simulatingRight = true;
-                        ControllerState.IsSimulatingClick = true;
-                        ControllerState.SimulatedClickCooldown = Time.unscaledTime + 0.08f;
-                        MouseSimulation.SendRightDown();
-                    }
-                }
-                else
-                {
-                    if (_prevXButton)
-                    {
-                        _simulatingRight = false;
-                        ControllerState.IsSimulatingClick = _simulatingLeft;
-                        if (_simulatingLeft) ControllerState.SimulatedClickCooldown = Time.unscaledTime + 0.08f;
-                        MouseSimulation.SendRightUp();
-                    }
-                }
-
-                if (yDown && !_prevYButton && !ltHeld
-                    && ConsoleHUD.ActivePanel == ConsolePanel.None && !NavMenu.IsOpen)
-                    DoDraft();
             }
+
+            // X Button: Always Interact/Move (Right-Click)
+            if (xDown)
+            {
+                if (NavHelper.IsActive && NavHelper.HasSelection)
+                {
+                    // Bypassed: NavHelper owns navigation/input
+                }
+                else if (!xConsumed && !overUI && !_prevXButton)
+                {
+                    _simulatingRight = true;
+                    ControllerState.IsSimulatingClick = true;
+                    ControllerState.SimulatedClickCooldown = Time.unscaledTime + 0.08f;
+                    MouseSimulation.SendRightDown();
+                }
+            }
+            else
+            {
+                if (_prevXButton)
+                {
+                    _simulatingRight = false;
+                    ControllerState.IsSimulatingClick = _simulatingLeft;
+                    if (_simulatingLeft) ControllerState.SimulatedClickCooldown = Time.unscaledTime + 0.08f;
+                    MouseSimulation.SendRightUp();
+                }
+            }
+
+            if (yDown && !_prevYButton && !ltHeld
+                && ConsoleHUD.ActivePanel == ConsolePanel.None && !NavMenu.IsOpen)
+                DoDraft();
 
             _prevAButton = aDown;
             _prevBButton = bDown;
             _prevXButton = xDown;
             _prevYButton = yDown;
             _prevRBButton = rbDown;
+            _prevLBButton = lbDown;
         }
 
         // ---- smart X: context-sensitive combat (console reticle style) ---------
@@ -306,15 +224,12 @@ namespace PeskyGizmo
             if (hoveringEnemy)
             {
                 bool isHostile = attackTarget!.HostileTo(selectedPawn);
-                bool armedForThis = ArmedAttackTarget == attackTarget && IsArmedAttackActive;
 
-                // Friendly / neutral target: require a second X press to confirm.
-                if (!isHostile && !armedForThis)
+                // Friendly / neutral target: let vanilla right-click simulate
+                // so the player gets the "Melee attack alpaca" / "Fire at..." float menu.
+                if (!isHostile)
                 {
-                    ArmedAttackTarget = attackTarget;
-                    _armedAttackExpires = Time.unscaledTime + ARMED_ATTACK_WINDOW;
-                    SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
-                    return true;
+                    return false;
                 }
 
                 // Fire — auto-draft and fan attack jobs to every selected pawn.
@@ -322,13 +237,8 @@ namespace PeskyGizmo
                     if (!p.drafter.Drafted) p.drafter.Drafted = true;
 
                 IssueMassAttack(selectedPawns, attackTarget!);
-                ArmedAttackTarget = null;
                 SoundDefOf.Tick_High.PlayOneShotOnCamera();
                 return true;
-            }
-            else if (ArmedAttackTarget != null && ArmedAttackTarget != attackTarget)
-            {
-                ArmedAttackTarget = null;
             }
 
             // Hovering empty ground with drafted pawn: right-click to move
@@ -354,6 +264,7 @@ namespace PeskyGizmo
             if (t == null || t == attacker) return false;
             if (t.Faction != null && attacker.Faction != null && t.Faction == attacker.Faction) return false;
             if (t is Pawn) return true;
+            if (t.def?.category == ThingCategory.Plant) return false;
             if (t.def?.useHitPoints != true) return false;
             return true;
         }
@@ -474,6 +385,29 @@ namespace PeskyGizmo
                 HoveredPawn.drafter.Drafted = !HoveredPawn.drafter.Drafted;
                 SoundDefOf.Click.PlayOneShotOnCamera();
             }
+        }
+
+        private static void CycleColonist(bool forward)
+        {
+            var map = Find.CurrentMap;
+            if (map == null) return;
+            var colonists = map.mapPawns.FreeColonistsSpawned.ToList();
+            if (colonists.Count == 0) return;
+
+            Pawn? current = Find.Selector.SingleSelectedThing as Pawn;
+            if (current == null && Find.Selector.SelectedObjects.Count > 0)
+            {
+                current = Find.Selector.SelectedObjects.OfType<Pawn>().FirstOrDefault();
+            }
+            if (current == null) current = colonists[0];
+
+            int idx = colonists.IndexOf(current);
+            if (idx == -1) idx = 0;
+
+            if (forward) idx = (idx + 1) % colonists.Count;
+            else idx = (idx - 1 + colonists.Count) % colonists.Count;
+
+            CameraJumper.TryJumpAndSelect(colonists[idx]);
         }
 
         /// <summary>

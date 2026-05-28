@@ -24,10 +24,6 @@ namespace PeskyGizmo
 
     public static class NavHelper
     {
-        private static List<TrackedItem> _currentFrame = new List<TrackedItem>();
-        private static List<TrackedItem> _snapshot = new List<TrackedItem>();
-        private static int _lastSeenFrame = -1;
-
         private static Rect _selectedRect;
         private static Vector2 _selectedScreenCenter;
         private static bool _hasSelection = false;
@@ -47,13 +43,16 @@ namespace PeskyGizmo
         private static Rect _currentRect;
         private static int _currentRectFrame = -1;
 
-        private const float RowClusterEpsilonPx = 6f;
-        private const float ScreenCenterMatchEps = 2f;
+        private static float RowClusterEpsilonPx = 6f;
+        private static float ScreenCenterMatchEps = 0.5f;
 
         private static bool _menuNavModeActive = false;
-        private static Window _lastSeenTopWindow = null;
+        private static Window? _lastSeenTopWindow = null;
+        private static ProgramState? _lastProgramState;
+        private static readonly NavItemTracker _tracker = new NavItemTracker();
+        private static bool _activatedByUser = false;
 
-        private static Window CurrentTopWindow()
+        private static Window? CurrentTopWindow()
         {
             var ws = Find.WindowStack;
             if (ws == null) return null;
@@ -88,70 +87,33 @@ namespace PeskyGizmo
                 _menuNavModeActive = value;
                 if (!_menuNavModeActive)
                 {
+                    _activatedByUser = false;
                     _hasSelection = false;
                 }
                 else
                 {
                     InitializeSelection();
-                    ZoomMode.Exit();
                 }
             }
         }
 
-        public static bool IsActive => ControllerState.ControllerModeEnabled && _menuNavModeActive && _snapshot.Count > 0;
+        public static bool IsActive => ControllerState.ControllerModeEnabled && _menuNavModeActive && _tracker.SnapshotCount > 0;
 
         private static Vector2 ComputeScreenCenter(Rect localRect)
         {
             try { return GUIUtility.GUIToScreenPoint(localRect.center); }
-            catch { return localRect.center; }
-        }
-
-        private static bool HasNearbyScreenCenter(List<TrackedItem> list, Vector2 sc)
-        {
-            for (int i = 0; i < list.Count; i++)
+            catch
             {
-                if (Vector2.Distance(list[i].screenCenter, sc) < ScreenCenterMatchEps)
-                    return true;
+                // GUIUtility matrix not set during Layout events; fall back to local coords
+                return localRect.center;
             }
-            return false;
         }
 
         private static void SwapIfNewFrame()
         {
-            int f = Time.frameCount;
-            if (f != _lastSeenFrame)
-            {
-                _lastSeenFrame = f;
-                var tmp = _snapshot;
-                _snapshot = _currentFrame;
-                _currentFrame = tmp;
-                _currentFrame.Clear();
-
-                DeduplicateSnapshot();
-            }
+            _tracker.SwapIfNewFrame(ScreenCenterMatchEps);
         }
 
-        private static void DeduplicateSnapshot()
-        {
-            if (_snapshot.Count <= 1) return;
-
-            for (int i = _snapshot.Count - 1; i >= 1; i--)
-            {
-                bool dupe = false;
-                for (int j = 0; j < i; j++)
-                {
-                    if (Vector2.Distance(_snapshot[i].screenCenter, _snapshot[j].screenCenter) < ScreenCenterMatchEps)
-                    {
-                        dupe = true;
-                        break;
-                    }
-                }
-                if (dupe)
-                {
-                    _snapshot.RemoveAt(i);
-                }
-            }
-        }
 
         public static void RecordButton(Rect rect, string label, bool active)
         {
@@ -159,8 +121,8 @@ namespace PeskyGizmo
             SwapIfNewFrame();
             var sc = ComputeScreenCenter(rect);
             if (!IsScreenPosOnScreen(sc)) return;
-            if (HasNearbyScreenCenter(_currentFrame, sc)) return;
-            _currentFrame.Add(new TrackedItem { rect = rect, screenCenter = sc, label = label, active = active, kind = ItemKind.Brown });
+            if (_tracker.CurrentFrameContainsNearby(sc, ScreenCenterMatchEps)) return;
+            _tracker.Record(new TrackedItem { rect = rect, screenCenter = sc, label = label, active = active, kind = ItemKind.Brown });
         }
 
         public static void RecordInvisibleButton(Rect rect)
@@ -170,8 +132,8 @@ namespace PeskyGizmo
             var sc = ComputeScreenCenter(rect);
             if (!IsScreenPosOnScreen(sc)) return;
             SwapIfNewFrame();
-            if (HasNearbyScreenCenter(_currentFrame, sc)) return;
-            _currentFrame.Add(new TrackedItem { rect = rect, screenCenter = sc, kind = ItemKind.Invisible, active = true });
+            if (_tracker.CurrentFrameContainsNearby(sc, ScreenCenterMatchEps)) return;
+            _tracker.Record(new TrackedItem { rect = rect, screenCenter = sc, kind = ItemKind.Invisible, active = true });
         }
 
         public static void RecordRadioButton(Rect rect, bool chosen)
@@ -181,8 +143,33 @@ namespace PeskyGizmo
             var sc = ComputeScreenCenter(rect);
             if (!IsScreenPosOnScreen(sc)) return;
             SwapIfNewFrame();
-            if (HasNearbyScreenCenter(_currentFrame, sc)) return;
-            _currentFrame.Add(new TrackedItem { rect = rect, screenCenter = sc, kind = ItemKind.Radio, active = !chosen });
+            if (_tracker.CurrentFrameContainsNearby(sc, ScreenCenterMatchEps)) return;
+            _tracker.Record(new TrackedItem { rect = rect, screenCenter = sc, kind = ItemKind.Radio, active = !chosen });
+        }
+
+        private static readonly Dictionary<long, Action> _customActions = new Dictionary<long, Action>();
+
+        public static void RecordCustomTarget(Rect rect, string label, Action onActivate)
+        {
+            if (!ShouldRecord()) return;
+            var sc = ComputeScreenCenter(rect);
+            if (!IsScreenPosOnScreen(sc)) return;
+            SwapIfNewFrame();
+            if (_tracker.CurrentFrameContainsNearby(sc, ScreenCenterMatchEps)) return;
+            long hash = (long)(sc.x * 100) * 1000000L + (long)(sc.y * 100);
+            _customActions[hash] = onActivate;
+            _tracker.Record(new TrackedItem { rect = rect, screenCenter = sc, label = label, active = true, kind = ItemKind.Brown });
+        }
+
+        public static bool TryInvokeCustomAction(Vector2 screenCenter)
+        {
+            long hash = (long)(screenCenter.x * 100) * 1000000L + (long)(screenCenter.y * 100);
+            if (_customActions.TryGetValue(hash, out var action))
+            {
+                try { action(); } catch (System.Exception ex) { GizmoLog.ErrorOnce($"Custom action failed: {ex.Message}", 555001); }
+                return true;
+            }
+            return false;
         }
 
         public static void RecordSlider(Rect rect, float value, float min, float max, float roundTo)
@@ -192,8 +179,8 @@ namespace PeskyGizmo
             var sc = ComputeScreenCenter(rect);
             if (!IsScreenPosOnScreen(sc)) return;
             SwapIfNewFrame();
-            if (HasNearbyScreenCenter(_currentFrame, sc)) return;
-            _currentFrame.Add(new TrackedItem
+            if (_tracker.CurrentFrameContainsNearby(sc, ScreenCenterMatchEps)) return;
+            _tracker.Record(new TrackedItem
             {
                 rect = rect,
                 screenCenter = sc,
@@ -213,8 +200,8 @@ namespace PeskyGizmo
             var sc = ComputeScreenCenter(rect);
             if (!IsScreenPosOnScreen(sc)) return;
             SwapIfNewFrame();
-            if (HasNearbyScreenCenter(_currentFrame, sc)) return;
-            _currentFrame.Add(new TrackedItem
+            if (_tracker.CurrentFrameContainsNearby(sc, ScreenCenterMatchEps)) return;
+            _tracker.Record(new TrackedItem
             {
                 rect = rect,
                 screenCenter = sc,
@@ -229,7 +216,11 @@ namespace PeskyGizmo
             if (_simulatedClickFrame != Time.frameCount) return false;
             Vector2 screenCenter;
             try { screenCenter = GUIUtility.GUIToScreenPoint(rect.center); }
-            catch { screenCenter = rect.center; }
+            catch
+            {
+                // GUIUtility matrix not set during Layout events; fall back to local coords
+                screenCenter = rect.center;
+            }
             if (Vector2.Distance(screenCenter, _simulatedClickScreenCenter) > ScreenCenterMatchEps) return false;
             _simulatedClickFrame = -1;
             return true;
@@ -257,17 +248,21 @@ namespace PeskyGizmo
             if (_textFieldFocusFrame != Time.frameCount) return false;
             Vector2 screenCenter;
             try { screenCenter = GUIUtility.GUIToScreenPoint(rect.center); }
-            catch { screenCenter = rect.center; }
+            catch
+            {
+                // GUIUtility matrix not set during Layout events; fall back to local coords
+                screenCenter = rect.center;
+            }
             return Vector2.Distance(screenCenter, _textFieldFocusScreenCenter) < ScreenCenterMatchEps;
         }
 
         private static bool IsTextFieldSelected()
         {
             if (!_hasSelection) return false;
-            for (int i = 0; i < _snapshot.Count; i++)
+            for (int i = 0; i < _tracker.SnapshotCount; i++)
             {
-                if (_snapshot[i].kind == ItemKind.TextField
-                    && Vector2.Distance(_snapshot[i].screenCenter, _selectedScreenCenter) < ScreenCenterMatchEps)
+                if (_tracker.Snapshot[i].kind == ItemKind.TextField
+                    && Vector2.Distance(_tracker.Snapshot[i].screenCenter, _selectedScreenCenter) < ScreenCenterMatchEps)
                     return true;
             }
             return false;
@@ -281,7 +276,7 @@ namespace PeskyGizmo
 
         private static void InitializeSelection()
         {
-            if (_snapshot.Count == 0)
+            if (_tracker.SnapshotCount == 0)
             {
                 _hasSelection = false;
                 return;
@@ -289,10 +284,10 @@ namespace PeskyGizmo
 
             Vector2 guiCursorPos = new Vector2(ControllerState.CursorScreenPos.x, Screen.height - ControllerState.CursorScreenPos.y);
 
-            TrackedItem bestItem = _snapshot[0];
+            TrackedItem bestItem = _tracker.Snapshot[0];
             float bestDistSq = float.MaxValue;
 
-            foreach (var item in _snapshot)
+            foreach (var item in _tracker.Snapshot)
             {
                 float distSq = (item.screenCenter - guiCursorPos).sqrMagnitude;
                 if (distSq < bestDistSq)
@@ -305,18 +300,8 @@ namespace PeskyGizmo
             _selectedRect = bestItem.rect;
             _selectedScreenCenter = bestItem.screenCenter;
             _hasSelection = true;
-
-            SnapCursorToSelected();
         }
 
-        private static void SnapCursorToSelected()
-        {
-            if (!_hasSelection) return;
-            Vector2 unityPos = new Vector2(_selectedScreenCenter.x, Screen.height - _selectedScreenCenter.y);
-            ControllerState.CursorScreenPos = unityPos;
-            if (!NavController.AnyCursorHidingPanelOpen)
-                MouseSimulation.SyncWindowsCursor();
-        }
 
         public static void Tick()
         {
@@ -329,31 +314,33 @@ namespace PeskyGizmo
             }
 
             var curTop = CurrentTopWindow();
-            if (curTop != _lastSeenTopWindow)
+            bool justEnteredEntry = Current.ProgramState == ProgramState.Entry && _lastProgramState != ProgramState.Entry;
+            _lastProgramState = Current.ProgramState;
+
+            if (curTop != _lastSeenTopWindow || justEnteredEntry)
             {
                 _lastSeenTopWindow = curTop;
                 _hasSelection = false;
-                if (curTop != null)
+                if (curTop != null || Current.ProgramState == ProgramState.Entry)
                 {
+                    _activatedByUser = false;
                     MenuNavModeActive = true;
+                }
+                else if (!_activatedByUser && _menuNavModeActive)
+                {
+                    MenuNavModeActive = false;
                 }
             }
 
-            if (_menuNavModeActive && !_hasSelection && _snapshot.Count > 0)
+            if (_menuNavModeActive && !_hasSelection && _tracker.SnapshotCount > 0)
             {
                 InitializeSelection();
             }
 
-            if (_snapshot.Count == 0)
+            if (_tracker.SnapshotCount == 0)
             {
                 _hasSelection = false;
                 return;
-            }
-
-            if (ControllerState.ButtonRBEdge)
-            {
-                MenuNavModeActive = !MenuNavModeActive;
-                SoundDefOf.Tick_Tiny?.PlayOneShotOnCamera();
             }
 
             if (_menuNavModeActive)
@@ -366,6 +353,13 @@ namespace PeskyGizmo
                 }
             }
 
+            if (_menuNavModeActive && ControllerState.ButtonBEdge)
+            {
+                MenuNavModeActive = false;
+                ConsoleHUD.ConsumeInput();
+                return;
+            }
+
             bool up = ControllerState.DpadUpEdge;
             bool down = ControllerState.DpadDownEdge;
             bool left = ControllerState.DpadLeftEdge;
@@ -376,6 +370,9 @@ namespace PeskyGizmo
             {
                 if (!_menuNavModeActive)
                 {
+                    if (curTop == null && !_activatedByUser)
+                        return;
+
                     MenuNavModeActive = true;
                     initializedThisFrame = true;
                 }
@@ -386,12 +383,12 @@ namespace PeskyGizmo
                 return;
             }
 
-            if (_hasSelection && !ContainsScreenCenter(_snapshot, _selectedScreenCenter))
+            if (_hasSelection && !ContainsScreenCenter(_tracker.Snapshot, _selectedScreenCenter))
                 _hasSelection = false;
 
             if (_hasSelection && TryGetSliderUnderSelection(out int sliderIdx))
             {
-                var s = _snapshot[sliderIdx];
+                var s = _tracker.Snapshot[sliderIdx];
                 bool lb = ControllerState.ButtonLBEdge;
                 bool rb = ControllerState.ButtonRBEdge;
 
@@ -412,7 +409,8 @@ namespace PeskyGizmo
                     _sliderOverrideValue = newVal;
                     _sliderOverrideFrame = Time.frameCount;
 
-                    try { SoundDefOf.DragSlider?.PlayOneShotOnCamera(); } catch { }
+                    try { SoundDefOf.DragSlider?.PlayOneShotOnCamera(); }
+                    catch { /* Best-effort audio; camera may not be available */ }
                     left = right = false;
                 }
             }
@@ -442,11 +440,6 @@ namespace PeskyGizmo
                     else if (right) Move(+1, 0);
                 }
 
-                if (_hasSelection)
-                {
-                    SnapCursorToSelected();
-                }
-
                 if (_hasSelection && !IsTextFieldSelected())
                 {
                     GUIUtility.keyboardControl = 0;
@@ -457,10 +450,14 @@ namespace PeskyGizmo
             {
                 if (_hasSelection)
                 {
-                    _simulatedClickRect = _selectedRect;
-                    _simulatedClickScreenCenter = _selectedScreenCenter;
-                    _simulatedClickFrame = Time.frameCount;
-                    try { SoundDefOf.Click?.PlayOneShotOnCamera(); } catch { }
+                    if (!TryInvokeCustomAction(_selectedScreenCenter))
+                    {
+                        _simulatedClickRect = _selectedRect;
+                        _simulatedClickScreenCenter = _selectedScreenCenter;
+                        _simulatedClickFrame = Time.frameCount;
+                    }
+                    try { SoundDefOf.Click?.PlayOneShotOnCamera(); }
+                    catch { /* Best-effort audio; camera may not be available */ }
 
                     if (IsTextFieldSelected())
                     {
@@ -478,7 +475,24 @@ namespace PeskyGizmo
             if (!IsActive || !_hasSelection) return false;
             Vector2 screenCenter;
             try { screenCenter = GUIUtility.GUIToScreenPoint(rect.center); }
-            catch { screenCenter = rect.center; }
+            catch
+            {
+                // GUIUtility matrix not set during Layout events; fall back to local coords
+                screenCenter = rect.center;
+            }
+            return Vector2.Distance(screenCenter, _selectedScreenCenter) < ScreenCenterMatchEps;
+        }
+
+        public static bool IsNearSelected(Rect rect)
+        {
+            if (!_hasSelection) return false;
+            Vector2 screenCenter;
+            try { screenCenter = GUIUtility.GUIToScreenPoint(rect.center); }
+            catch
+            {
+                // GUIUtility matrix not set during Layout events; fall back to local coords
+                screenCenter = rect.center;
+            }
             return Vector2.Distance(screenCenter, _selectedScreenCenter) < ScreenCenterMatchEps;
         }
 
@@ -496,10 +510,10 @@ namespace PeskyGizmo
 
         private static bool TryGetSliderUnderSelection(out int idx)
         {
-            for (int i = 0; i < _snapshot.Count; i++)
+            for (int i = 0; i < _tracker.SnapshotCount; i++)
             {
-                if (_snapshot[i].kind == ItemKind.Slider
-                    && Vector2.Distance(_snapshot[i].screenCenter, _selectedScreenCenter) < ScreenCenterMatchEps)
+                if (_tracker.Snapshot[i].kind == ItemKind.Slider
+                    && Vector2.Distance(_tracker.Snapshot[i].screenCenter, _selectedScreenCenter) < ScreenCenterMatchEps)
                 {
                     idx = i;
                     return true;
@@ -517,7 +531,7 @@ namespace PeskyGizmo
 
         private static bool TryGetItemUnderMouse(Vector2 guiMousePos, out TrackedItem hit)
         {
-            foreach (var item in _snapshot)
+            foreach (var item in _tracker.Snapshot)
             {
                 var delta = item.screenCenter - item.rect.center;
                 var screenRect = new Rect(item.rect.x + delta.x, item.rect.y + delta.y, item.rect.width, item.rect.height);
@@ -533,7 +547,7 @@ namespace PeskyGizmo
 
         private static bool TryGetItemMatchingRect(Rect rect, out TrackedItem hit)
         {
-            foreach (var item in _snapshot)
+            foreach (var item in _tracker.Snapshot)
             {
                 if (RectApproxEquals(item.rect, rect))
                 {
@@ -552,7 +566,7 @@ namespace PeskyGizmo
             float bestScore = float.MaxValue;
             bool found = false;
 
-            foreach (var b in _snapshot)
+            foreach (var b in _tracker.Snapshot)
             {
                 if (Vector2.Distance(b.screenCenter, curCenter) < ScreenCenterMatchEps) continue;
 
@@ -591,13 +605,23 @@ namespace PeskyGizmo
             {
                 _selectedRect = bestItem.rect;
                 _selectedScreenCenter = bestItem.screenCenter;
+                HapticManager.UI_DpadNav();
+            }
+            else if (GizmoMod.Settings.navWrapAround)
+            {
+                var wrapped = FindFarthest(dx * -1, dy * -1);
+                if (wrapped.rect.width > 0f)
+                {
+                    _selectedRect      = wrapped.rect;
+                    _selectedScreenCenter = wrapped.screenCenter;
+                }
             }
         }
 
         private static TrackedItem FindStarter()
         {
-            TrackedItem best = _snapshot[0];
-            foreach (var b in _snapshot)
+            TrackedItem best = _tracker.Snapshot[0];
+            foreach (var b in _tracker.Snapshot)
             {
                 if (b.screenCenter.y < best.screenCenter.y - 0.5f
                     || (Mathf.Abs(b.screenCenter.y - best.screenCenter.y) < 0.5f && b.screenCenter.x < best.screenCenter.x))
@@ -608,10 +632,31 @@ namespace PeskyGizmo
             return best;
         }
 
-        private static bool ContainsScreenCenter(List<TrackedItem> list, Vector2 target)
+        private static TrackedItem FindFarthest(int dx, int dy)
         {
-            foreach (var b in list)
-                if (Vector2.Distance(b.screenCenter, target) < ScreenCenterMatchEps) return true;
+            var curCenter = _selectedScreenCenter;
+            TrackedItem best = default;
+            float bestScore  = float.MinValue;
+
+            foreach (var b in _tracker.Snapshot)
+            {
+                if (Vector2.Distance(b.screenCenter, curCenter) < ScreenCenterMatchEps) continue;
+                float dxTo = b.screenCenter.x - curCenter.x;
+                float dyTo = b.screenCenter.y - curCenter.y;
+
+                float score = dy != 0
+                    ? Mathf.Abs(dyTo) + Mathf.Abs(dxTo) * 2f
+                    : Mathf.Abs(dxTo) + Mathf.Abs(dyTo) * 2f;
+
+                if (score > bestScore) { bestScore = score; best = b; }
+            }
+            return best;
+        }
+
+        private static bool ContainsScreenCenter(IReadOnlyList<TrackedItem> list, Vector2 target)
+        {
+            for (int i = 0; i < list.Count; i++)
+                if (Vector2.Distance(list[i].screenCenter, target) < ScreenCenterMatchEps) return true;
             return false;
         }
 

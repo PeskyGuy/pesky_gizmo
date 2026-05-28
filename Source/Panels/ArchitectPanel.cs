@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -34,9 +33,6 @@ namespace PeskyGizmo
         private static Vector2 _subScrollPos;
         private static Vector2 _itemsScrollPos;
 
-        private static FieldInfo? _desPanelsCachedField;
-        private static bool _reflectionAttempted;
-
         private static Rect _lastPanelRect;
 
         // Designator right-click options overlay
@@ -67,7 +63,7 @@ namespace PeskyGizmo
             _showingDesignatorOptions = false;
             _designatorOptions.Clear();
             CacheCategories();
-            CloseVanillaArchitect();
+            DesignatorBridge.TryCloseVanillaArchitect();
         }
 
         public static void Close()
@@ -76,23 +72,12 @@ namespace PeskyGizmo
             Find.DesignatorManager.Deselect();
             _showingDesignatorOptions = false;
             _designatorOptions.Clear();
-            CloseVanillaArchitect();
-        }
-
-        private static void CloseVanillaArchitect()
-        {
-            try
-            {
-                var archDef = MainButtonDefOf.Architect;
-                if (archDef?.TabWindow != null && Find.WindowStack.IsOpen(archDef.TabWindow))
-                    Find.WindowStack.TryRemove(archDef.TabWindow, true);
-            }
-            catch { }
+            DesignatorBridge.TryCloseVanillaArchitect();
         }
 
         private static void CacheCategories()
         {
-            _categories = TryGetCachedPanelDefs();
+            _categories = DesignatorBridge.GetCachedPanelDefs();
 
             if (_categories == null || _categories.Count == 0)
             {
@@ -102,42 +87,6 @@ namespace PeskyGizmo
                     .ToList();
             }
         }
-
-        private static List<DesignationCategoryDef>? TryGetCachedPanelDefs()
-        {
-            try
-            {
-                var archWindow = MainButtonDefOf.Architect?.TabWindow as MainTabWindow_Architect;
-                if (archWindow == null) return null;
-
-                if (!_reflectionAttempted)
-                {
-                    _reflectionAttempted = true;
-                    _desPanelsCachedField = typeof(MainTabWindow_Architect)
-                        .GetField("desPanelsCached", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-                }
-
-                if (_desPanelsCachedField == null) return null;
-
-                var panels = _desPanelsCachedField.GetValue(archWindow) as System.Collections.IList;
-                if (panels == null || panels.Count == 0) return null;
-
-                var defs = new List<DesignationCategoryDef>();
-                foreach (var panel in panels)
-                {
-                    if (panel is ArchitectCategoryTab tab && tab.def != null && tab.def.Visible)
-                        defs.Add(tab.def);
-                }
-
-                return defs.Count > 0 ? defs : null;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-
 
         private static void OpenCategory(int index)
         {
@@ -249,7 +198,10 @@ namespace PeskyGizmo
                     var opt = _designatorOptions[_designatorOptionIndex];
                     if (!opt.Disabled && opt.action != null)
                     {
-                        try { opt.action(); } catch { }
+                        try { opt.action(); } catch (System.Exception ex)
+                        {
+                            GizmoLog.WarningOnce($"Designator option action failed: {ex.GetBaseException().Message}", 552002);
+                        }
                     }
                     else
                     {
@@ -277,11 +229,11 @@ namespace PeskyGizmo
                 }
             }
             // Handle placement rotation (LB/RB) — for buildings without shape variants
-            else if (activeDes is Designator_Place placeDes && IsPlacingDefRotatable(placeDes))
+            else if (activeDes is Designator_Place placeDes && DesignatorBridge.IsPlacingDefRotatable(placeDes))
             {
                 if (lbPress || rbPress)
                 {
-                    RotatePlaceDesignator(placeDes, lbPress ? RotationDirection.Counterclockwise : RotationDirection.Clockwise);
+                    DesignatorBridge.TryRotate(placeDes, lbPress ? RotationDirection.Counterclockwise : RotationDirection.Clockwise);
                     ConsoleHUD.ConsumeInput();
                 }
             }
@@ -374,54 +326,6 @@ namespace PeskyGizmo
             SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
         }
 
-        private static MethodInfo? _handleRotationMethod;
-        private static FieldInfo? _placingRotField;
-
-        private static bool IsPlacingDefRotatable(Designator_Place place)
-        {
-            try
-            {
-                if (place.PlacingDef is ThingDef td) return td.rotatable;
-            }
-            catch { }
-            return false;
-        }
-
-        private static void RotatePlaceDesignator(Designator_Place place, RotationDirection dir)
-        {
-            try
-            {
-                if (_handleRotationMethod == null)
-                {
-                    _handleRotationMethod = typeof(Designator_Place).GetMethod("HandleRotation",
-                        BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-                }
-                if (_handleRotationMethod != null)
-                {
-                    _handleRotationMethod.Invoke(place, new object[] { dir });
-                    SoundDefOf.DragSlider.PlayOneShotOnCamera();
-                    return;
-                }
-
-                if (_placingRotField == null)
-                {
-                    _placingRotField = typeof(Designator_Place).GetField("placingRot",
-                        BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-                }
-                if (_placingRotField != null)
-                {
-                    Rot4 cur = (Rot4)_placingRotField.GetValue(place);
-                    cur = cur.Rotated(dir);
-                    _placingRotField.SetValue(place, cur);
-                    SoundDefOf.DragSlider.PlayOneShotOnCamera();
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.ErrorOnce($"[Gizmo] Designator rotation failed: {ex.GetBaseException().Message}", 552119);
-            }
-        }
-
         private static void ActivateDesignator()
         {
             if (_currentDesignators == null || _nav.Index < 0 || _nav.Index >= _currentDesignators.Count) return;
@@ -502,9 +406,6 @@ namespace PeskyGizmo
                     GUI.color = ConsoleStyle.Teal;
                     Widgets.DrawBox(cellRect, 2);
                     GUI.color = Color.white;
-
-                    Rect localCell = new Rect(viewRect.x + cellRect.x - scrollPos.x, viewRect.y + cellRect.y - scrollPos.y, cellRect.width, cellRect.height);
-                    NavController.SnapCursorTo(localCell);
                 }
 
                 var cat = list[i];
@@ -641,12 +542,6 @@ namespace PeskyGizmo
                     GUI.color = active ? Color.white : ConsoleStyle.Teal;
                     Widgets.DrawBox(cellRect, selected ? 2 : 1);
                     GUI.color = Color.white;
-
-                    if (selected)
-                    {
-                        Rect localCell = new Rect(viewRect.x + cellRect.x - _itemsScrollPos.x, viewRect.y + cellRect.y - _itemsScrollPos.y, cellRect.width, cellRect.height);
-                        NavController.SnapCursorTo(localCell);
-                    }
                 }
 
                 if (des.icon != null)
@@ -734,7 +629,7 @@ namespace PeskyGizmo
             Designator? des = Find.DesignatorManager.SelectedDesignator;
             if (des is not Designator_Place placeDes) return;
             if (placeDes.DrawStyleCategory != null) return; // shapes overlay already shown
-            if (!IsPlacingDefRotatable(placeDes)) return;
+            if (!DesignatorBridge.IsPlacingDefRotatable(placeDes)) return;
 
             float overlayW = 200f;
             float overlayH = 100f;
@@ -747,19 +642,8 @@ namespace PeskyGizmo
             Rect header = new Rect(x + 10f, y + 10f, overlayW - 20f, 24f);
             ConsoleStyle.Label(header, des.LabelCap, ConsoleStyle.TextWhite, GameFont.Small, TextAnchor.MiddleLeft);
 
-            string rotLabel = "?";
-            try
-            {
-                if (_placingRotField == null)
-                    _placingRotField = typeof(Designator_Place).GetField("placingRot",
-                        BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-                if (_placingRotField != null)
-                {
-                    Rot4 cur = (Rot4)_placingRotField.GetValue(placeDes);
-                    rotLabel = RotName(cur);
-                }
-            }
-            catch { }
+            Rot4? curRot = DesignatorBridge.GetPlacingRot(placeDes);
+            string rotLabel = curRot.HasValue ? RotName(curRot.Value) : "?";
 
             Rect styleRect = new Rect(x + 10f, y + 40f, overlayW - 20f, 30f);
             ConsoleStyle.DrawSection(styleRect);
@@ -866,9 +750,9 @@ namespace PeskyGizmo
                 return true;
             }
 
-            if (activeDes is Designator_Place placeDes && IsPlacingDefRotatable(placeDes))
+            if (activeDes is Designator_Place placeDes && DesignatorBridge.IsPlacingDefRotatable(placeDes))
             {
-                RotatePlaceDesignator(placeDes, lbPress ? RotationDirection.Counterclockwise : RotationDirection.Clockwise);
+                DesignatorBridge.TryRotate(placeDes, lbPress ? RotationDirection.Counterclockwise : RotationDirection.Clockwise);
                 return true;
             }
 
@@ -877,19 +761,10 @@ namespace PeskyGizmo
 
         private static void DrawDesignatorOverlay(Designator des, Rect iconRect)
         {
-            try
-            {
-                var prop = des.GetType().GetProperty("IconTopTex",
-                    BindingFlags.Instance |
-                    BindingFlags.NonPublic |
-                    BindingFlags.Public);
-                if (prop == null) return;
-                Texture2D? topTex = prop.GetValue(des) as Texture2D;
-                if (topTex == null) return;
-                GUI.color = Color.white;
-                Widgets.DrawTextureFitted(iconRect, topTex, des.iconDrawScale * 0.85f, des.iconProportions, des.iconTexCoords, des.iconAngle);
-            }
-            catch { }
+            Texture2D? topTex = DesignatorBridge.GetIconTopTex(des);
+            if (topTex == null) return;
+            GUI.color = Color.white;
+            Widgets.DrawTextureFitted(iconRect, topTex, des.iconDrawScale * 0.85f, des.iconProportions, des.iconTexCoords, des.iconAngle);
         }
     }
 }

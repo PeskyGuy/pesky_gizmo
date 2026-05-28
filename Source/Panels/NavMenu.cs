@@ -44,12 +44,12 @@ namespace PeskyGizmo
             new Entry { label = "Colony",     subView = View.Colony },
             new Entry { label = "Nature",     subView = View.Nature },
             new Entry { label = "Planet",     subView = View.Planet },
-            new Entry { label = "Colonists",  defName = "__colonists__" },
             new Entry { label = "Ideoligion", defName = "Ideos", dlcOnly = true },
         };
 
         private static readonly Entry[] ColonyEntries =
         {
+            new Entry { label = "Colonists",  defName = "__colonists__" },
             new Entry { label = "Work",     defName = "Work" },
             new Entry { label = "Schedule", defName = "Schedule" },
             new Entry { label = "Assign",   defName = "Assign" },
@@ -169,8 +169,6 @@ namespace PeskyGizmo
                     GUI.color = ConsoleStyle.Teal;
                     Widgets.DrawBox(row, 2);
                     GUI.color = Color.white;
-                    
-                    NavController.SnapCursorTo(row);
                 }
                 else
                 {
@@ -209,8 +207,8 @@ namespace PeskyGizmo
 
         public static bool HandleInput()
         {
-            // LB toggles open/close globally
-            if (ControllerState.ButtonLBEdge)
+            // LT toggles open/close globally
+            if (ControllerState.ButtonLTEdge)
             {
                 Toggle();
                 return true;
@@ -345,7 +343,7 @@ namespace PeskyGizmo
                     inTarget = Find.MainTabsRoot.OpenTab == _pendingTabDef;
                 }
             }
-            catch { }
+            catch { /* World/UI state may be unavailable during loading or transition */ }
 
             if (_pending == PendingState.Launching && inTarget)
             {
@@ -365,7 +363,7 @@ namespace PeskyGizmo
         {
             if (string.IsNullOrEmpty(defName)) return false;
             try { return DefDatabase<MainButtonDef>.GetNamed(defName, false) != null; }
-            catch { return false; }
+            catch { /* DefDatabase may not be initialized during loading */ return false; }
         }
 
         private static Texture2D? TryGetIcon(Entry e)
@@ -377,7 +375,7 @@ namespace PeskyGizmo
                 MainButtonDef? def = DefDatabase<MainButtonDef>.GetNamed(e.defName, false);
                 return def?.Icon;
             }
-            catch { return null; }
+            catch { /* Def icon lookup may fail for dynamically-registered tabs; safe to return null */ return null; }
         }
     }
 }

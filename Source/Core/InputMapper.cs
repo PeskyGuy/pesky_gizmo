@@ -2,7 +2,7 @@ using RimWorld;
 using Verse;
 using UnityEngine;
 
-namespace PeskyCommandable
+namespace PeskyGizmo
 {
     public static class InputMapper
     {
@@ -10,7 +10,7 @@ namespace PeskyCommandable
         {
             if (!NativeInput.Poll()) return;
 
-            var s = CommandableMod.Settings;
+            var s = GizmoMod.Settings;
             float dz = ControllerState.InnerDeadzone;
 
             float lsX = GetAxis(s.axisLS_X);
@@ -55,8 +55,20 @@ namespace PeskyCommandable
             if (ControllerState.DpadUp || ControllerState.DpadDown || ControllerState.DpadLeft || ControllerState.DpadRight)
                 anyActiveInput = true;
 
+            // Check for actual button presses, not just the fallback flag.
             if (NativeInput.RawButtons != 0)
                 anyActiveInput = true;
+            else if (NativeInput.UsingUnityFallback)
+            {
+                for (int i = 0; i < 20; i++)
+                {
+                    if (NativeInput.IsButtonDown(i))
+                    {
+                        anyActiveInput = true;
+                        break;
+                    }
+                }
+            }
 
             if (anyActiveInput && !ControllerState.UsingController)
             {
@@ -79,14 +91,13 @@ namespace PeskyCommandable
 
         private static void UpdateCursorPosition()
         {
-            if (ZoomMode.Active && (ConsoleHUD.ActivePanel != ConsolePanel.None || NavMenu.IsOpen))
-            {
-                ZoomMode.Exit();
-            }
-
             if (ZoomMode.Active)
             {
+                if (NavController.IsCustomUIActive || NavHelper.MenuNavModeActive)
+                    return;
+
                 ControllerState.CursorScreenPos = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+                MouseSimulation.SyncWindowsCursor();
                 return;
             }
 
@@ -96,11 +107,11 @@ namespace PeskyCommandable
                 speed *= (1f - ControllerState.AimAssistStrength);
 
             Vector2 pos = ControllerState.CursorScreenPos;
-            pos.x += ControllerState.CursorAxisX * speed;
-            pos.y -= ControllerState.CursorAxisY * speed;
+            pos.x += ApplyCurve(ControllerState.CursorAxisX, GizmoMod.Settings.stickCurve) * speed;
+            pos.y -= ApplyCurve(ControllerState.CursorAxisY, GizmoMod.Settings.stickCurve) * speed;
 
             // Soft aim assist toward nearby UI buttons recorded last frame.
-            if (CommandableMod.Settings.enableUIAimAssist && ControllerState.AimAssistStrength > 0f)
+            if (GizmoMod.Settings.enableUIAimAssist && ControllerState.AimAssistStrength > 0f)
             {
                 Vector2 uiPull = UIAimAssist.ComputePullScreen(pos,
                     ControllerState.CursorAxisX, ControllerState.CursorAxisY);
@@ -109,7 +120,19 @@ namespace PeskyCommandable
 
             pos.x = Mathf.Clamp(pos.x, 0, Screen.width);
             pos.y = Mathf.Clamp(pos.y, 0, Screen.height);
+
+            Vector2 prev = ControllerState.CursorScreenPos;
             ControllerState.CursorScreenPos = pos;
+
+            if ((pos - prev).sqrMagnitude > 0.01f && !NavHelper.MenuNavModeActive)
+                MouseSimulation.SyncWindowsCursor();
+        }
+
+        private static float ApplyCurve(float axis, float exp)
+        {
+            float sign = Mathf.Sign(axis);
+            float mag  = Mathf.Abs(axis);
+            return sign * Mathf.Pow(mag, exp);
         }
 
         private static float GetAxis(string name)

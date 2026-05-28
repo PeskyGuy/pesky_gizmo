@@ -9,8 +9,7 @@ namespace PeskyGizmo
         {
             try
             {
-                NavHelper.RecordButton(rect, label, active: true);
-                _customActions[ScreenCenterHash(rect)] = onActivate;
+                NavHelper.RecordCustomTarget(rect, label, onActivate);
             }
             catch (Exception ex)
             {
@@ -26,20 +25,5 @@ namespace PeskyGizmo
 
         public static bool IsControllerActive
             => ControllerState.ControllerModeEnabled;
-
-        private static readonly System.Collections.Generic.Dictionary<long, Action>
-            _customActions = new System.Collections.Generic.Dictionary<long, Action>();
-
-        internal static void ProcessCustomActions()
-        {
-        }
-
-        private static long ScreenCenterHash(Rect rect)
-        {
-            Vector2 sc;
-            try { sc = GUIUtility.GUIToScreenPoint(rect.center); }
-            catch { sc = rect.center; }
-            return (long)(sc.x * 100) * 1000000L + (long)(sc.y * 100);
-        }
     }
 }

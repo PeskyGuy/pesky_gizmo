@@ -16,7 +16,11 @@ namespace PeskyGizmo
         // would bleed into our world UI.
         public static bool IsWorldViewOpen
         {
-            get { try { return WorldRendererUtility.WorldSelected; } catch { return false; } }
+            get
+            {
+                try { return WorldRendererUtility.WorldSelected; }
+                catch { /* World state unavailable during loading; safe to assume not world view */ return false; }
+            }
         }
 
         public static bool IsWorldMode
@@ -29,7 +33,7 @@ namespace PeskyGizmo
                         && Find.WorldSelector != null
                         && Find.WorldSelector.NumSelectedObjects > 0;
                 }
-                catch { return false; }
+                catch { /* World state unavailable during loading; safe to assume not world mode */ return false; }
             }
         }
 

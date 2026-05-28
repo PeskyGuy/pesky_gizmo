@@ -24,10 +24,10 @@ namespace PeskyGizmo
             if (LongEventHandler.ShouldWaitForEvent) return;
             if (!ControllerState.ControllerModeEnabled) return;
 
-            // The reticle hex itself is the OS hardware cursor (set by CursorHelper),
-            // so we only draw the HUD and contextual prompts here.
+            UnityEngine.Cursor.visible = false;
+
             ConsoleHUD.Draw();
-            ReticleDrawer.Draw(drawReticle: false);
+            ReticleDrawer.Draw(drawReticle: true);
 
             if (GizmoMod.Settings.showDebugOverlay)
                 DebugOverlay.Draw();
