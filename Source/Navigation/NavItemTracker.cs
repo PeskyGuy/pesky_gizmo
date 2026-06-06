@@ -37,6 +37,25 @@ namespace PeskyGizmo
             (_snapshot, _currentFrame) = (_currentFrame, _snapshot);
             _currentFrame.Clear();
             Deduplicate(dedupEpsilon);
+            MarkObscuredItems();
+        }
+
+        private void MarkObscuredItems()
+        {
+            for (int i = 0; i < _snapshot.Count; i++)
+            {
+                var item = _snapshot[i];
+                for (int j = i + 1; j < _snapshot.Count; j++)
+                {
+                    var laterItem = _snapshot[j];
+                    if (laterItem.rect.Contains(item.screenCenter))
+                    {
+                        item.isObscured = true;
+                        _snapshot[i] = item;
+                        break;
+                    }
+                }
+            }
         }
 
         private void Deduplicate(float epsilon)

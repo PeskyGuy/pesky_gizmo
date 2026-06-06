@@ -17,7 +17,7 @@ namespace PeskyGizmo
         private const float SKILL_BAR_HEIGHT = 9f;
         private const float SKILL_ROW_H = 24f;
         private const float SKILL_MAX = 20f;
-        private const float CHIP_H = 22f;
+        private const float CHIP_H = 26f;
 
         // Bio section ids — up/down moves between sections, left/right within.
         private const int SEC_IDENTITY  = 0; // xenotype / ideo / faction chips
@@ -62,9 +62,9 @@ namespace PeskyGizmo
             }
             catch { /* Portrait rendering may fail on invalid pawn state */ }
 
-            ConsoleStyle.Label(new Rect(infoX, y, infoW, 20f), pawn.LabelNoCount,
+            ConsoleStyle.Label(new Rect(infoX, y, infoW, 40f), pawn.LabelNoCount,
                 ConsoleStyle.TextWhite, GameFont.Small, TextAnchor.UpperLeft);
-            y += 20f;
+            y += 30f;
 
             // ── Chips row 1: Xenotype, Ideoligion, Faction ──────────────────
             float chipX = infoX;
@@ -135,9 +135,9 @@ namespace PeskyGizmo
             string equipped = GetEquippedString(pawn);
             if (!string.IsNullOrEmpty(equipped))
             {
-                ConsoleStyle.Label(new Rect(infoX, y, infoW, 15f),
+                ConsoleStyle.Label(new Rect(infoX, y, infoW, 30f),
                     equipped, ConsoleStyle.TextGray, GameFont.Tiny, TextAnchor.UpperLeft);
-                y += 17f;
+                y += 32f;
             }
 
             if (y < portraitH + 2f) y = portraitH + 2f;

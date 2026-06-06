@@ -1,10 +1,3 @@
-# Sync-PeskyGizmo.ps1
-# Copies clean mod assets from F: (Source) to D: (Release).
-# Excludes all source/build files per the Clean vs. Messy rule.
-#
-# Usage: .\Sync-PeskyGizmo.ps1
-#        .\Sync-PeskyGizmo.ps1 -WhatIf
-
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [switch]$Build
@@ -24,7 +17,7 @@ if ($Build) {
     Write-Host ""
 }
 
-$ExcludeFiles = "*.cs *.csproj *.sln *.user *.md *.ps1"
+$ExcludeFiles = "*.cs *.csproj *.sln *.user *.md *.ps1 *.pdb .gitattributes .gitignore"
 $ExcludeDirs = "Source Docs obj bin .git .vs"
 
 Write-Host "=== Pesky's Gizmo -- Release Sync ===" -ForegroundColor Cyan

@@ -90,14 +90,14 @@ namespace PeskyGizmo
             const float spacing = 4f;
             const float padding = 10f;
             const float headerH = 24f;
-            const float tooltipH = 22f;
+            const float tooltipH = 44f; // Increased for wrapped text
 
             int cols = _nav.Cols;
             int rows = Mathf.CeilToInt((float)count / cols);
             float gridW = cols * cellSize + (cols - 1) * spacing;
             float gridH = rows * cellSize + (rows - 1) * spacing;
             float panelW = gridW + padding * 2;
-            float panelH = padding * 2 + headerH + gridH + tooltipH;
+            float panelH = padding * 2 + headerH + 4f + gridH + 8f + tooltipH;
             float panelX = Verse.UI.screenWidth - panelW - 16f;
             float panelY = Verse.UI.screenHeight - 35f - panelH - 4f;
 
@@ -150,7 +150,12 @@ namespace PeskyGizmo
             {
                 string tip = _items[idx].tooltip;
                 if (!string.IsNullOrEmpty(tip))
-                    ConsoleStyle.Label(tooltipRect, tip, ConsoleStyle.TextGray, GameFont.Tiny, TextAnchor.MiddleCenter);
+                {
+                    Text.Font = GameFont.Tiny;
+                    float textHeight = Text.CalcHeight(tip, tooltipRect.width);
+                    Rect labelRect = new Rect(tooltipRect.x, tooltipRect.y + (tooltipRect.height - textHeight) / 2f, tooltipRect.width, textHeight);
+                    ConsoleStyle.Label(labelRect, tip, ConsoleStyle.TextGray, GameFont.Tiny, TextAnchor.UpperCenter);
+                }
             }
         }
     }

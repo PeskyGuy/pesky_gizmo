@@ -288,11 +288,56 @@ namespace PeskyGizmo
 
                 if (obj is Thing t)
                 {
-                    ConsoleStyle.Label(new Rect(rect.x, rect.y, rect.width, 22f),
+                    float y = rect.y;
+
+                    // Title
+                    ConsoleStyle.Label(new Rect(rect.x, y, rect.width - 56f, 22f),
                         t.LabelCapNoCount, ConsoleStyle.TextWhite, GameFont.Small, TextAnchor.MiddleLeft);
-                    string sub = t.def?.label ?? "";
-                    ConsoleStyle.Label(new Rect(rect.x, rect.y + 22f, rect.width, 18f),
-                        sub.CapitalizeFirst(), ConsoleStyle.TextGray, GameFont.Tiny, TextAnchor.MiddleLeft);
+                    y += 22f;
+
+                    // HitPoints
+                    if (t.def.useHitPoints)
+                    {
+                        ConsoleStyle.Label(new Rect(rect.x, y, rect.width, 18f),
+                            $"{t.HitPoints} / {t.MaxHitPoints}", ConsoleStyle.TextGray, GameFont.Tiny, TextAnchor.MiddleLeft);
+                        y += 18f;
+                    }
+
+                    // Inspect String
+                    string inspect = t.GetInspectString();
+                    if (!string.IsNullOrEmpty(inspect))
+                    {
+                        ConsoleStyle.Label(new Rect(rect.x, y, rect.width, rect.height - (y - rect.y)),
+                            inspect, ConsoleStyle.TextGray, GameFont.Tiny, TextAnchor.UpperLeft);
+                    }
+                    else if (!t.def.useHitPoints)
+                    {
+                        string sub = t.def?.label ?? "";
+                        ConsoleStyle.Label(new Rect(rect.x, y, rect.width, 18f),
+                            sub.CapitalizeFirst(), ConsoleStyle.TextGray, GameFont.Tiny, TextAnchor.MiddleLeft);
+                    }
+
+                    // Top Right Buttons
+                    float btnSize = 24f;
+                    float btnX = rect.x + rect.width - btnSize;
+                    
+                    Rect selectNextRect = new Rect(btnX, rect.y, btnSize, btnSize);
+                    if (Widgets.ButtonImage(selectNextRect, TexButton.SelectOverlappingNext))
+                    {
+                        if (Find.WindowStack.WindowOfType<RimWorld.MainTabWindow_Inspect>() is RimWorld.MainTabWindow_Inspect pane)
+                        {
+                            pane.SelectNextInCell();
+                        }
+                    }
+                    
+                    btnX -= btnSize + 4f;
+
+                    Rect infoRect = new Rect(btnX, rect.y, btnSize, btnSize);
+                    if (Widgets.ButtonImage(infoRect, TexButton.Info))
+                    {
+                        Find.WindowStack.Add(new Dialog_InfoCard(t));
+                    }
+
                     return;
                 }
 

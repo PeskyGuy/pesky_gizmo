@@ -14,8 +14,6 @@ namespace PeskyGizmo
             try
             {
                 NavHelper.RecordButton(rect, label, active);
-                if (NavHelper.MenuNavModeActive && NavHelper.IsNearSelected(rect))
-                    NavController.SnapCursorTo(rect);
             }
             catch { }
         }
@@ -41,8 +39,6 @@ namespace PeskyGizmo
             try
             {
                 NavHelper.RecordInvisibleButton(butRect);
-                if (NavHelper.MenuNavModeActive && NavHelper.IsNearSelected(butRect))
-                    NavController.SnapCursorTo(butRect);
             }
             catch { }
         }
@@ -69,8 +65,6 @@ namespace PeskyGizmo
             try
             {
                 NavHelper.RecordInvisibleButton(butRect);
-                if (NavHelper.MenuNavModeActive && NavHelper.IsNearSelected(butRect))
-                    NavController.SnapCursorTo(butRect);
             }
             catch { }
 
@@ -161,6 +155,54 @@ namespace PeskyGizmo
 
             if (NavHelper.IsSelectedAndActive(rect))
                 NavHelper.DrawSelectionHighlight(rect);
+        }
+    }
+    [HarmonyPatch(typeof(Widgets), nameof(Widgets.BeginScrollView))]
+    public static class Patch_Widgets_BeginScrollView
+    {
+        public static void Prefix(Rect outRect, ref Vector2 scrollPosition, Rect viewRect)
+        {
+            if (!ControllerState.ControllerModeEnabled) return;
+
+            NavScrollHelper.Push(outRect);
+
+            if (NavScrollHelper.TryConsumePendingScroll(outRect, out Rect localTarget))
+            {
+                // Adjust scrollPosition to ensure localTarget is visible within outRect
+                float margin = 20f; // Give a little breathing room
+
+                if (localTarget.yMin < scrollPosition.y)
+                {
+                    scrollPosition.y = localTarget.yMin - margin;
+                }
+                else if (localTarget.yMax > scrollPosition.y + outRect.height)
+                {
+                    scrollPosition.y = localTarget.yMax - outRect.height + margin;
+                }
+
+                if (localTarget.xMin < scrollPosition.x)
+                {
+                    scrollPosition.x = localTarget.xMin - margin;
+                }
+                else if (localTarget.xMax > scrollPosition.x + outRect.width)
+                {
+                    scrollPosition.x = localTarget.xMax - outRect.width + margin;
+                }
+
+                // Clamp to prevent scrolling past limits
+                scrollPosition.x = Mathf.Clamp(scrollPosition.x, 0f, Mathf.Max(0f, viewRect.width - outRect.width));
+                scrollPosition.y = Mathf.Clamp(scrollPosition.y, 0f, Mathf.Max(0f, viewRect.height - outRect.height));
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(Widgets), nameof(Widgets.EndScrollView))]
+    public static class Patch_Widgets_EndScrollView
+    {
+        public static void Postfix()
+        {
+            if (!ControllerState.ControllerModeEnabled) return;
+            NavScrollHelper.Pop();
         }
     }
 }

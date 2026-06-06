@@ -151,7 +151,6 @@ namespace PeskyGizmo
                 Patch_Input_Global.Bypassing = true;
 
                 ConsoleHUD.HandleInput();
-                NavHelper.Tick();
                 NavMenu.Tick();
 
                 // Start button → toggle the in-game ESC menu (same as pressing Escape).
@@ -160,10 +159,10 @@ namespace PeskyGizmo
                     Find.MainTabsRoot?.ToggleTab(MainButtonDefOf.Menu);
                 }
 
-                // R3 (right-stick click) → toggle right-stick zoom mode.
-                if (ControllerState.ButtonR3Edge && Current.ProgramState == ProgramState.Playing && !NavHelper.MenuNavModeActive)
+                // R3 (right-stick click) → mass draft/undraft selected pawns
+                if (ControllerState.ButtonR3Edge && Current.ProgramState == ProgramState.Playing)
                 {
-                    ZoomMode.Toggle();
+                    ReticleController.DoDraft();
                 }
 
                 // B button (cancel) → close topmost open window OR close ESC menu tab.

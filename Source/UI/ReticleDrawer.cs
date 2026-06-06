@@ -37,7 +37,7 @@ namespace PeskyGizmo
         {
             try
             {
-                bool cursorHidden = NavController.AnyCursorHidingPanelOpen || NavHelper.MenuNavModeActive;
+                bool cursorHidden = NavController.AnyCursorHidingPanelOpen;
 
                 Vector2 rawPos = ControllerState.UsingController
                     ? ControllerState.CursorScreenPos

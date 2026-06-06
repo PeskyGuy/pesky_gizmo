@@ -91,42 +91,13 @@ namespace PeskyGizmo
 
         private static void UpdateCursorPosition()
         {
-            if (ZoomMode.Active)
-            {
-                if (NavController.IsCustomUIActive || NavHelper.MenuNavModeActive)
-                    return;
-
-                ControllerState.CursorScreenPos = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
-                MouseSimulation.SyncWindowsCursor();
+            if (NavController.IsCustomUIActive || NavHelper.IsActive)
                 return;
-            }
 
-            float speed = ControllerState.CursorSensitivity * Time.unscaledDeltaTime;
-            
-            if (ReticleController.HasTarget)
-                speed *= (1f - ControllerState.AimAssistStrength);
-
-            Vector2 pos = ControllerState.CursorScreenPos;
-            pos.x += ApplyCurve(ControllerState.CursorAxisX, GizmoMod.Settings.stickCurve) * speed;
-            pos.y -= ApplyCurve(ControllerState.CursorAxisY, GizmoMod.Settings.stickCurve) * speed;
-
-            // Soft aim assist toward nearby UI buttons recorded last frame.
-            if (GizmoMod.Settings.enableUIAimAssist && ControllerState.AimAssistStrength > 0f)
-            {
-                Vector2 uiPull = UIAimAssist.ComputePullScreen(pos,
-                    ControllerState.CursorAxisX, ControllerState.CursorAxisY);
-                pos += uiPull * ControllerState.AimAssistStrength;
-            }
-
-            pos.x = Mathf.Clamp(pos.x, 0, Screen.width);
-            pos.y = Mathf.Clamp(pos.y, 0, Screen.height);
-
-            Vector2 prev = ControllerState.CursorScreenPos;
-            ControllerState.CursorScreenPos = pos;
-
-            if ((pos - prev).sqrMagnitude > 0.01f && !NavHelper.MenuNavModeActive)
-                MouseSimulation.SyncWindowsCursor();
+            ControllerState.CursorScreenPos = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            MouseSimulation.SyncWindowsCursor();
         }
+
 
         private static float ApplyCurve(float axis, float exp)
         {

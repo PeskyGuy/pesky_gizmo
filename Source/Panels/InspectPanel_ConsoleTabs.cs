@@ -9,8 +9,8 @@ namespace PeskyGizmo
 {
     public static partial class InspectPanel
     {
-        private const float ConsoleRowH = 22f;
-        private const float ConsoleGap = 6f;
+        private const float ConsoleRowH = 32f;
+        private const float ConsoleGap = 4f;
         private enum HealthSubtab { Overview, Operations }
         private static HealthSubtab _healthSubtab = HealthSubtab.Overview;
         private static readonly List<Rect> _healthFocusRects = new List<Rect>();
@@ -618,9 +618,9 @@ namespace PeskyGizmo
         private static void DrawConditionRow(Rect rect, Hediff h)
         {
             Widgets.DrawBoxSolid(rect, new Color(0.12f, 0.13f, 0.14f));
-            ConsoleStyle.Label(new Rect(rect.x + 4f, rect.y + 1f, rect.width * 0.60f, 13f), h.LabelCap, ConsoleStyle.TextWhite, GameFont.Tiny);
+            ConsoleStyle.Label(new Rect(rect.x + 4f, rect.y + 2f, rect.width * 0.60f, 15f), h.LabelCap, ConsoleStyle.TextWhite, GameFont.Tiny);
             string part = h.Part?.LabelCap ?? "";
-            ConsoleStyle.Label(new Rect(rect.x + 4f, rect.y + 13f, rect.width * 0.60f, 12f), part, ConsoleStyle.TextMuted, GameFont.Tiny);
+            ConsoleStyle.Label(new Rect(rect.x + 4f, rect.y + 15f, rect.width * 0.60f, 15f), part, ConsoleStyle.TextMuted, GameFont.Tiny);
             string sev = !h.SeverityLabel.NullOrEmpty() ? h.SeverityLabel : h.Severity > 0f ? h.Severity.ToString("0.##") : "";
             ConsoleStyle.Label(new Rect(rect.x + rect.width * 0.62f, rect.y, rect.width * 0.36f, rect.height), sev, h.BleedRate > 0f ? new Color(1f, 0.45f, 0.35f) : ConsoleStyle.TextGray, GameFont.Tiny, TextAnchor.MiddleRight);
         }
@@ -628,8 +628,8 @@ namespace PeskyGizmo
         private static void DrawSocialRelationRow(Rect rect, SocialRow row)
         {
             Widgets.DrawBoxSolid(rect, new Color(0.12f, 0.13f, 0.14f));
-            ConsoleStyle.Label(new Rect(rect.x + 6f, rect.y + 2f, rect.width * 0.42f, 17f), row.Relation, ConsoleStyle.TextGray, GameFont.Tiny);
-            ConsoleStyle.Label(new Rect(rect.x + 6f, rect.y + 17f, rect.width * 0.55f, 15f), row.Pawn.LabelShortCap, ConsoleStyle.TextWhite, GameFont.Tiny);
+            ConsoleStyle.Label(new Rect(rect.x + 6f, rect.y + 2f, rect.width * 0.42f, 15f), row.Relation, ConsoleStyle.TextGray, GameFont.Tiny);
+            ConsoleStyle.Label(new Rect(rect.x + 6f, rect.y + 15f, rect.width * 0.55f, 15f), row.Pawn.LabelShortCap, ConsoleStyle.TextWhite, GameFont.Tiny);
             ConsoleStyle.Label(new Rect(rect.x + rect.width * 0.58f, rect.y, rect.width * 0.18f, rect.height), Signed(row.Opinion), OpinionColor(row.Opinion), GameFont.Tiny, TextAnchor.MiddleRight);
             ConsoleStyle.Label(new Rect(rect.x + rect.width * 0.78f, rect.y, rect.width * 0.20f, rect.height), Signed(row.TheirOpinion), OpinionColor(row.TheirOpinion), GameFont.Tiny, TextAnchor.MiddleRight);
         }

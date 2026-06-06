@@ -26,7 +26,6 @@ namespace PeskyGizmo
                 if (!_usingController)
                 {
                     UnityEngine.Cursor.lockState = CursorLockMode.None;
-                    ZoomMode.Exit();
                 }
                 if (GizmoMod.Settings.showDebugOverlay)
                     Log.Message($"[Gizmo] UsingController {_prevUsingController}→{value} at t={Time.unscaledTime:F2}");
@@ -62,6 +61,9 @@ namespace PeskyGizmo
         public static bool ButtonStartEdge, ButtonBackEdge;
         public static bool ButtonR3Edge, ButtonL3Edge;
         public static bool ButtonLTEdge, ButtonRTEdge;
+        public static bool ButtonLTReleaseEdge;
+        public static float ButtonLTHoldDuration;
+        public static bool ModifierConsumed_LT;
 
         public static bool IsSimulatingClick;
         public static float SimulatedClickCooldown;
@@ -163,6 +165,10 @@ namespace PeskyGizmo
 
                 bool ltDown = IsButtonDown(GizmoMod.Settings.btnLT);
                 ButtonLTEdge = ltDown && !_prevLT;
+                if (ButtonLTEdge) ModifierConsumed_LT = false;
+                if (ltDown) ButtonLTHoldDuration += Time.unscaledDeltaTime;
+                else ButtonLTHoldDuration = 0f;
+                ButtonLTReleaseEdge = !ltDown && _prevLT;
                 _prevLT = ltDown;
 
                 bool rtDown = IsButtonDown(GizmoMod.Settings.btnRT);

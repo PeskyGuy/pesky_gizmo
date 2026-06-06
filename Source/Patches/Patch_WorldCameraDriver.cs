@@ -33,7 +33,7 @@ namespace PeskyGizmo
 
             // Zoom mode (R3 toggle): right-stick Y drives world altitude continuously.
             // Stick up → zoom in (decrease altitude); stick down → zoom out.
-            float zoomInput = ZoomMode.Active ? -ControllerState.CursorAxisY : 0f;
+            float zoomInput = -ControllerState.CursorAxisY;
 
             if (Mathf.Abs(zoomInput) > 0.01f)
             {

@@ -190,9 +190,7 @@ namespace PeskyGizmo
                 }
             }
 
-            if (yDown && !_prevYButton && !ltHeld
-                && ConsoleHUD.ActivePanel == ConsolePanel.None && !NavMenu.IsOpen)
-                DoDraft();
+            // Removed Y button draft logic (moved to R3 globally)
 
             _prevAButton = aDown;
             _prevBButton = bDown;
@@ -352,7 +350,7 @@ namespace PeskyGizmo
             }
         }
 
-        private static void DoDraft()
+        public static void DoDraft()
         {
             // Mass draft/undraft all selected colonists
             try

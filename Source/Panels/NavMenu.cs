@@ -207,8 +207,8 @@ namespace PeskyGizmo
 
         public static bool HandleInput()
         {
-            // LT toggles open/close globally
-            if (ControllerState.ButtonLTEdge)
+            // LT toggles open/close globally (on release, if not used as a modifier)
+            if (ControllerState.ButtonLTReleaseEdge && !ControllerState.ModifierConsumed_LT && ControllerState.ButtonLTHoldDuration < 0.4f)
             {
                 Toggle();
                 return true;

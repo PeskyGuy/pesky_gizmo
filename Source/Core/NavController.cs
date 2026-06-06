@@ -15,6 +15,7 @@ namespace PeskyGizmo
             ColonistPanel.Instance,
             ArchitectPanel.Instance,
             InspectPanel.Instance,
+            NavHelper.Instance,
         };
 
         // Legacy-compat: used by NavHelper and Patch_RootUpdate to gate certain
@@ -84,7 +85,7 @@ namespace PeskyGizmo
 
             ControllerState.CursorScreenPos = unityPos;
 
-            if (!AnyCursorHidingPanelOpen && !NavHelper.MenuNavModeActive)
+            if (!AnyCursorHidingPanelOpen)
                 MouseSimulation.SyncWindowsCursor();
         }
     }

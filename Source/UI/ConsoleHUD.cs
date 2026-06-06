@@ -20,6 +20,10 @@ namespace PeskyGizmo
         {
             InputConsumed = false;
             if (!ControllerState.ControllerModeEnabled) return;
+
+            NavController.Tick();
+            if (InputConsumed) return;
+
             if (Current.Game == null) return;
 
             bool ltHeld = ControllerState.IsButtonDown(GizmoMod.Settings.btnLT);
@@ -27,12 +31,10 @@ namespace PeskyGizmo
             {
                 if (ActivePanel == ConsolePanel.Architect) ActivePanel = ConsolePanel.None;
                 else ArchitectPanel.Open();
+                ControllerState.ModifierConsumed_LT = true;
                 InputConsumed = true;
                 return;
             }
-
-            NavController.Tick();
-            if (InputConsumed) return;
 
             HandleAmbientInput();
             if (InputConsumed) return;
@@ -85,6 +87,14 @@ namespace PeskyGizmo
             }
             else if (Find.Selector?.NumSelected > 0)
             {
+                if (InspectPanel.AmbientFocused || Time.unscaledTime - InspectPanel.LastNavTime < 3f)
+                {
+                    InspectPanel.ClearAmbientFocus();
+                    InspectPanel.LastNavTime = -10f;
+                    InputConsumed = true;
+                    return;
+                }
+                
                 Find.Selector.ClearSelection();
                 InputConsumed = true;
             }
@@ -107,9 +117,10 @@ namespace PeskyGizmo
             }
 
             bool ltHeld = ControllerState.IsButtonDown(GizmoMod.Settings.btnLT);
-            if (ControllerState.ButtonYEdge && ltHeld && !OverlayMenu.IsOpen && Current.ProgramState == ProgramState.Playing)
+            if (ControllerState.ButtonYEdge && ltHeld && Current.ProgramState == ProgramState.Playing)
             {
-                OverlayMenu.Open();
+                OverlayMenu.Toggle();
+                ControllerState.ModifierConsumed_LT = true;
                 InputConsumed = true;
                 return;
             }
@@ -126,7 +137,7 @@ namespace PeskyGizmo
                 if (InputConsumed) return;
             }
 
-            if (ZoomMode.Active && ActivePanel == ConsolePanel.None
+            if (ActivePanel == ConsolePanel.None
                 && !NavMenu.IsOpen && Find.CameraDriver != null)
             {
                 float zIn = -ControllerState.CursorAxisY;
@@ -143,7 +154,7 @@ namespace PeskyGizmo
                 }
             }
 
-            if (!InspectPanel.AmbientFocused && !NavHelper.MenuNavModeActive && !OverlayMenu.IsOpen && Find.TickManager != null)
+            if (!InspectPanel.AmbientFocused && !NavHelper.IsActive && !OverlayMenu.IsOpen && Find.TickManager != null)
             {
                 var tm = Find.TickManager;
                 if (ControllerState.DpadRightEdge)

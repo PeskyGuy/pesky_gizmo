@@ -20,6 +20,12 @@ namespace PeskyGizmo
 
         public static void HandleAmbientInput()
         {
+            if (NavHelper.Instance.IsOpen)
+            {
+                ClearAmbientFocus();
+                return;
+            }
+
             RefreshForCurrentSelection();
             int total = _gizmoActions.Count + _tabActions.Count;
             if (total == 0) return;
@@ -35,7 +41,6 @@ namespace PeskyGizmo
             {
                 bool wasFocused = AmbientFocused;
                 AmbientFocused = true;
-                LastFocusActivityTime = Time.unscaledTime;
                 if (!wasFocused) LastNavTime = Time.unscaledTime;
             }
 

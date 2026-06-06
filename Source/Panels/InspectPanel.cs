@@ -90,17 +90,9 @@ namespace PeskyGizmo
         public static bool AmbientFocused;
         private static bool _prevWorldOpen;
 
-        /// <summary>Last frame-time at which the user touched the ambient grid with a
-        /// d-pad press (even one that didn't actually navigate). Used to auto-expire
-        /// <see cref="AmbientFocused"/> after a short idle window so world-camera zoom
-        /// becomes available again without forcing the player to press B.</summary>
-        public static float LastFocusActivityTime = -100f;
-        private const float AmbientFocusIdleTimeout = 3f;
-
         public static void ClearAmbientFocus()
         {
             AmbientFocused = false;
-            LastFocusActivityTime = -100f;
         }
 
         private static Dictionary<int, int> _gizmoIndexMemory = new Dictionary<int, int>();
@@ -200,7 +192,6 @@ namespace PeskyGizmo
             _capturedSelection = null;
             _mode = Mode.Tabs;
             AmbientFocused = false;
-            LastFocusActivityTime = -100f;
             LastNavTime = -100f;
         }
 
@@ -416,12 +407,6 @@ namespace PeskyGizmo
                 _prevWorldOpen = worldOpen;
             }
 
-            // Auto-expire latched focus once the player stops interacting with the grid,
-            // so world-camera zoom (d-pad up/down) naturally becomes available again.
-            if (AmbientFocused && Time.unscaledTime - LastFocusActivityTime > AmbientFocusIdleTimeout)
-            {
-                AmbientFocused = false;
-            }
             if (cur == null && !worldOpen)
             {
                 if (IsActive) Close();
