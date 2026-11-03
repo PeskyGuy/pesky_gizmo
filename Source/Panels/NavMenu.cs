@@ -147,7 +147,7 @@ namespace PeskyGizmo
             Rect header = new Rect(panel.x + padding, panel.y + padding, panel.width - padding * 2, headerH);
             if (_view != View.Top)
             {
-                GlyphRenderer.Draw(header.x, header.y + (headerH - 22f) * 0.5f, "B", 22f);
+                GlyphRenderer.Draw(header.x, header.y + (headerH - 22f) * 0.5f, GamepadButton.B, 22f);
                 Rect titleRect = new Rect(header.x + 30f, header.y, header.width - 30f, headerH);
                 ConsoleStyle.Label(titleRect, CurrentTitle, ConsoleStyle.Teal, GameFont.Medium, TextAnchor.MiddleLeft);
             }
@@ -200,9 +200,9 @@ namespace PeskyGizmo
             // Prompt
             Rect prompt = new Rect(panel.x + padding, panel.yMax - padding - promptH, panel.width - padding * 2, promptH);
             if (_view == View.Top)
-                GlyphRenderer.DrawPromptBar(prompt, ("A", "Open"), ("LB", "Hide"));
+                GlyphRenderer.DrawPromptBar(prompt, (GamepadButton.A, "Open"), (GamepadButton.LB, "Hide"));
             else
-                GlyphRenderer.DrawPromptBar(prompt, ("A", "Open"), ("B", "Back"));
+                GlyphRenderer.DrawPromptBar(prompt, (GamepadButton.A, "Open"), (GamepadButton.B, "Back"));
         }
 
         public static bool HandleInput()

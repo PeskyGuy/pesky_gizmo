@@ -5,6 +5,13 @@ using RimWorld;
 
 namespace PeskyGizmo
 {
+    internal static class GizmoLog
+    {
+        public static void WarningOnce(string message, int key) => Log.WarningOnce("[Gizmo] " + message, key);
+        public static void ErrorOnce(string message, int key) => Log.ErrorOnce("[Gizmo] " + message, key);
+        public static void Message(string message) => Log.Message("[Gizmo] " + message);
+    }
+
     public class GizmoMod : Mod
     {
         public static GizmoMod? Instance { get; private set; }
@@ -14,20 +21,13 @@ namespace PeskyGizmo
 
         public GizmoMod(ModContentPack content) : base(content)
         {
-            Instance  = this;
+            Instance = this;
             _settings = GetSettings<GizmoSettings>();
 
             var harmony = new Harmony("Pesky.Gizmo");
             harmony.PatchAll();
 
-            if (!_settings.calibrationComplete)
-            {
-                LongEventHandler.ExecuteWhenFinished(() =>
-                {
-                    if (ControllerState.ControllerConnected)
-                        Find.WindowStack?.Add(new CalibrationWindow());
-                });
-            }
+
 
             Log.Message("[Gizmo] Initialised.");
         }
@@ -44,14 +44,6 @@ namespace PeskyGizmo
 
             listing.Label($"Cursor Sensitivity: {Settings.cursorSensitivity:F0} px/s");
             Settings.cursorSensitivity = listing.Slider(Settings.cursorSensitivity, 200f, 3000f);
-
-            listing.Gap();
-            listing.Label($"Aim Assist Strength: {Settings.aimAssistStrength:P0}");
-            Settings.aimAssistStrength = listing.Slider(Settings.aimAssistStrength, 0f, 0.9f);
-            listing.Label("  Slows the reticle near world targets and softly pulls it toward UI buttons.");
-
-            listing.CheckboxLabeled("UI Magnetism (snap to buttons & widgets)", ref Settings.enableUIAimAssist,
-                "When on, the cursor is gently pulled toward the nearest UI button while you move the stick. Disable for raw cursor control.");
 
             listing.Gap();
             listing.Label($"Stick Response Curve: {Settings.stickCurve:F1}");
@@ -75,10 +67,7 @@ namespace PeskyGizmo
             listing.CheckboxLabeled("Show Debug Overlay", ref Settings.showDebugOverlay);
 
             listing.GapLine();
-            if (listing.ButtonText("Open Calibration Wizard"))
-            {
-                Find.WindowStack.Add(new CalibrationWindow());
-            }
+            listing.CheckboxLabeled("Use Nintendo Button Layout (Swap A/B and X/Y)", ref Settings.useNintendoLayout);
 
             listing.End();
         }

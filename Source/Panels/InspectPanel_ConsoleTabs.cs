@@ -14,15 +14,15 @@ namespace PeskyGizmo
         private enum HealthSubtab { Overview, Operations }
         private static HealthSubtab _healthSubtab = HealthSubtab.Overview;
         private static readonly List<Rect> _healthFocusRects = new List<Rect>();
-        private static readonly List<Action> _healthFocusActions = new List<Action>();
+        private static readonly List<Action?> _healthFocusActions = new List<Action?>();
         private static int _healthFocusIndex;
 
         private struct OperationEntry
         {
             public string Label;
             public RecipeDef Recipe;
-            public BodyPartRecord Part;
-            public Texture2D Icon;
+            public BodyPartRecord? Part;
+            public Texture2D? Icon;
             public bool Disabled;
             public string DisabledReason;
         }
@@ -264,7 +264,7 @@ namespace PeskyGizmo
 
             if (hasQueued)
             {
-                Rect queuedSection = new Rect(rect.x, y, w, Mathf.Min(stack.Count * 28f + 28f, rect.height * 0.35f));
+                Rect queuedSection = new Rect(rect.x, y, w, Mathf.Min(stack!.Count * 28f + 28f, rect.height * 0.35f));
                 DrawConsoleSection(queuedSection, $"Queued ({stack.Count})");
                 float qy = queuedSection.y + 24f;
 
@@ -278,7 +278,7 @@ namespace PeskyGizmo
 
                     Widgets.DrawBoxSolid(row, new Color(0.14f, 0.15f, 0.16f));
 
-                    Texture2D billIcon = null;
+                    Texture2D? billIcon = null;
                     try { billIcon = bill.recipe?.UIIcon; } catch { /* recipe may not have icon */ }
                     if (billIcon != null)
                     {
@@ -417,7 +417,7 @@ namespace PeskyGizmo
                         if (!recipe.hideBodyPartNames)
                             label = $"{label} ({part.Label})";
 
-                        Texture2D icon = ResolveRecipeIcon(recipe, part);
+                        Texture2D? icon = ResolveRecipeIcon(recipe, part);
                         _cachedOps.Add(new OperationEntry
                         {
                             Label = label, Recipe = recipe, Part = part,
@@ -431,7 +431,7 @@ namespace PeskyGizmo
                         continue;
 
                     string label = recipe.Worker.GetLabelWhenUsedOn(pawn, null).CapitalizeFirst();
-                    Texture2D icon = ResolveRecipeIcon(recipe, null);
+                    Texture2D? icon = ResolveRecipeIcon(recipe, null);
                     _cachedOps.Add(new OperationEntry
                     {
                         Label = label, Recipe = recipe, Part = null,
@@ -505,7 +505,7 @@ namespace PeskyGizmo
             AddHealthFocus(rect, action);
         }
 
-        private static void AddHealthFocus(Rect rect, Action action)
+        private static void AddHealthFocus(Rect rect, Action? action)
         {
             _healthFocusRects.Add(rect);
             _healthFocusActions.Add(action);

@@ -17,6 +17,11 @@ namespace PeskyGizmo
             draw:        Draw
         );
 
+        static ArchitectPanel()
+        {
+            ConsoleHUD.RegisterBlockingException(() => ConsoleHUD.ActivePanel == ConsolePanel.Architect && Find.DesignatorManager?.SelectedDesignator != null);
+        }
+
         private enum Mode { Categories, Subcategories, Items }
         private static Mode _mode = Mode.Categories;
 
@@ -440,7 +445,7 @@ namespace PeskyGizmo
             }
 
             Rect promptRect = new Rect(panelX, panelY + panelH - PROMPT_HEIGHT - 4f, panelW, PROMPT_HEIGHT);
-            GlyphRenderer.DrawPromptBar(promptRect, ("B", _mode == Mode.Categories ? "Close" : "Back"), ("A", aPrompt));
+            GlyphRenderer.DrawPromptBar(promptRect, (GamepadButton.B, _mode == Mode.Categories ? "Close" : "Back"), (GamepadButton.A, aPrompt));
         }
 
         private static void DrawCategories()
@@ -587,7 +592,7 @@ namespace PeskyGizmo
             }
 
             Rect promptRect = new Rect(panelX, panelY + panelH - PROMPT_HEIGHT - 4f, panelW, PROMPT_HEIGHT);
-            GlyphRenderer.DrawPromptBar(promptRect, ("B", "Back"), ("X", "Options"), ("A", "Select"));
+            GlyphRenderer.DrawPromptBar(promptRect, (GamepadButton.B, "Back"), (GamepadButton.X, "Options"), (GamepadButton.A, "Select"));
         }
 
         private static void DrawShapesOverlay() => DrawShapesOverlayAt(_lastPanelRect);
@@ -618,8 +623,8 @@ namespace PeskyGizmo
             ConsoleStyle.Label(styleRect, styleLabel, ConsoleStyle.Teal, GameFont.Small, TextAnchor.MiddleCenter);
 
             Rect hints = new Rect(x + 10f, y + 75f, overlayW - 20f, 20f);
-            GlyphRenderer.DrawWithLabel(hints.x, hints.y, "LB", "", 16f);
-            GlyphRenderer.DrawWithLabel(hints.x + 35f, hints.y, "RB", "Shape", 16f);
+            GlyphRenderer.DrawWithLabel(hints.x, hints.y, GamepadButton.LB, "", 16f);
+            GlyphRenderer.DrawWithLabel(hints.x + 35f, hints.y, GamepadButton.RB, "Shape", 16f);
         }
 
         private static void DrawRotationOverlay() => DrawRotationOverlayAt(_lastPanelRect);
@@ -650,8 +655,8 @@ namespace PeskyGizmo
             ConsoleStyle.Label(styleRect, rotLabel, ConsoleStyle.Teal, GameFont.Small, TextAnchor.MiddleCenter);
 
             Rect hints = new Rect(x + 10f, y + 75f, overlayW - 20f, 20f);
-            GlyphRenderer.DrawWithLabel(hints.x, hints.y, "LB", "", 16f);
-            GlyphRenderer.DrawWithLabel(hints.x + 35f, hints.y, "RB", "Rotate", 16f);
+            GlyphRenderer.DrawWithLabel(hints.x, hints.y, GamepadButton.LB, "", 16f);
+            GlyphRenderer.DrawWithLabel(hints.x + 35f, hints.y, GamepadButton.RB, "Rotate", 16f);
         }
 
         private static void DrawDesignatorOptionsOverlay()

@@ -115,13 +115,13 @@ namespace PeskyGizmo
             if (isAmbient)
             {
                 if (AmbientFocused)
-                    GlyphRenderer.DrawPromptBar(promptRect, ("A", "Confirm"), ("B", "Back"));
+                    GlyphRenderer.DrawPromptBar(promptRect, (GamepadButton.A, "Confirm"), (GamepadButton.B, "Back"));
                 else
-                    GlyphRenderer.DrawPromptBar(promptRect, ("A", "Select"), ("D-Pad", "Actions"));
+                    GlyphRenderer.DrawPromptBar(promptRect, (GamepadButton.A, "Select"), (GamepadButton.Dpad, "Actions"));
             }
             else
             {
-                GlyphRenderer.DrawPromptBar(promptRect, ("A", "Open"), ("B", "Close"));
+                GlyphRenderer.DrawPromptBar(promptRect, (GamepadButton.A, "Open"), (GamepadButton.B, "Close"));
             }
 
             // Disabled reason

@@ -1,6 +1,7 @@
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Verse.Sound;
 
 namespace PeskyGizmo
 {
@@ -16,6 +17,9 @@ namespace PeskyGizmo
         public static bool InputConsumed { get; private set; }
         public static void ConsumeInput() => InputConsumed = true;
 
+        private static float _rtPressTime = -1f;
+        private static float _lastSpeedCycleTime = -1f;
+
         public static void HandleInput()
         {
             InputConsumed = false;
@@ -26,13 +30,16 @@ namespace PeskyGizmo
 
             if (Current.Game == null) return;
 
-            bool ltHeld = ControllerState.IsButtonDown(GizmoMod.Settings.btnLT);
+            bool ltHeld = ControllerState.RadialTrigger > 0.15f;
             if (ltHeld && ControllerState.ButtonXEdge)
             {
-                if (ActivePanel == ConsolePanel.Architect) ActivePanel = ConsolePanel.None;
-                else ArchitectPanel.Open();
-                ControllerState.ModifierConsumed_LT = true;
-                InputConsumed = true;
+                if (!CombatHUD.IsCombatMode)
+                {
+                    if (ActivePanel == ConsolePanel.Architect) ActivePanel = ConsolePanel.None;
+                    else ArchitectPanel.Open();
+                    ControllerState.ModifierConsumed_LT = true;
+                    InputConsumed = true;
+                }
                 return;
             }
 
@@ -44,8 +51,7 @@ namespace PeskyGizmo
 
         private static void HandleGlobalBack()
         {
-            if (Find.WindowStack.IsOpen<CalibrationWindow>())
-                return;
+
 
             if (ControllerState.ButtonBHoldEdge)
             {
@@ -116,7 +122,7 @@ namespace PeskyGizmo
                 return;
             }
 
-            bool ltHeld = ControllerState.IsButtonDown(GizmoMod.Settings.btnLT);
+            bool ltHeld = ControllerState.RadialTrigger > 0.15f;
             if (ControllerState.ButtonYEdge && ltHeld && Current.ProgramState == ProgramState.Playing)
             {
                 OverlayMenu.Toggle();
@@ -128,6 +134,18 @@ namespace PeskyGizmo
             if (OverlayMenu.IsOpen)
             {
                 OverlayMenu.HandleInput();
+                if (InputConsumed) return;
+            }
+
+            if (ComparisonPanel.IsOpen)
+            {
+                ComparisonPanel.HandleInput();
+                if (InputConsumed) return;
+            }
+
+            if (NotificationPanel.IsOpen)
+            {
+                NotificationPanel.HandleInput();
                 if (InputConsumed) return;
             }
 
@@ -157,19 +175,44 @@ namespace PeskyGizmo
             if (!InspectPanel.AmbientFocused && !NavHelper.IsActive && !OverlayMenu.IsOpen && Find.TickManager != null)
             {
                 var tm = Find.TickManager;
-                if (ControllerState.DpadRightEdge)
+                bool rtHeld = ControllerState.CursorTrigger > 0.15f;
+
+                if (rtHeld)
                 {
-                    if (tm.CurTimeSpeed == TimeSpeed.Paused)
-                        tm.TogglePaused();
-                    else if ((int)tm.CurTimeSpeed < (int)TimeSpeed.Ultrafast)
-                        tm.CurTimeSpeed = (TimeSpeed)((int)tm.CurTimeSpeed + 1);
-                    InputConsumed = true;
-                    return;
+                    if (_rtPressTime < 0f) 
+                    {
+                        _rtPressTime = Time.unscaledTime;
+                        _lastSpeedCycleTime = -1f;
+                    }
+                    else if (Time.unscaledTime - _rtPressTime > 0.4f)
+                    {
+                        if (Time.unscaledTime - _lastSpeedCycleTime > 0.3f)
+                        {
+                            if (tm.CurTimeSpeed == TimeSpeed.Paused) tm.TogglePaused();
+                            else if ((int)tm.CurTimeSpeed < (int)TimeSpeed.Ultrafast) tm.CurTimeSpeed = (TimeSpeed)((int)tm.CurTimeSpeed + 1);
+                            else tm.CurTimeSpeed = TimeSpeed.Normal;
+                            
+                            _lastSpeedCycleTime = Time.unscaledTime;
+                            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+                        }
+                    }
                 }
-                if (ControllerState.DpadLeftEdge)
+                else
                 {
-                    if ((int)tm.CurTimeSpeed > (int)TimeSpeed.Paused)
-                        tm.CurTimeSpeed = (TimeSpeed)((int)tm.CurTimeSpeed - 1);
+                    if (_rtPressTime > 0f)
+                    {
+                        if (Time.unscaledTime - _rtPressTime <= 0.4f)
+                        {
+                            tm.TogglePaused();
+                            SoundDefOf.Tick_High.PlayOneShotOnCamera();
+                        }
+                        _rtPressTime = -1f;
+                    }
+                }
+
+                if (ControllerState.DpadDownEdge && Find.Selector?.SingleSelectedThing is Pawn)
+                {
+                    ComparisonPanel.Toggle();
                     InputConsumed = true;
                     return;
                 }
@@ -201,10 +244,13 @@ namespace PeskyGizmo
             return false;
         }
 
+        private static readonly System.Collections.Generic.List<System.Func<bool>> _blockingExceptions = new System.Collections.Generic.List<System.Func<bool>>();
+        public static void RegisterBlockingException(System.Func<bool> exemptWhenTrue) => _blockingExceptions.Add(exemptWhenTrue);
+
         public static bool IsBlockingWindowOpen()
         {
-            if (ActivePanel == ConsolePanel.Architect && Find.DesignatorManager?.SelectedDesignator != null)
-                return false;
+            foreach (var func in _blockingExceptions)
+                if (func()) return false;
             return ActivePanel != ConsolePanel.None || NavMenu.IsOpen || OverlayMenu.IsOpen;
         }
 
@@ -215,6 +261,8 @@ namespace PeskyGizmo
             NavController.Draw();
             NavMenu.Draw();
             OverlayMenu.Draw();
+            ComparisonPanel.Draw();
+            NotificationPanel.Draw();
 
             if (ActivePanel == ConsolePanel.None && Current.ProgramState == ProgramState.Playing)
             {

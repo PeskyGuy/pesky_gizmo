@@ -47,39 +47,48 @@ namespace PeskyGizmo
             }
         }
 
-        public static float Draw(float x, float y, string button, float size = GLYPH_SIZE)
+        public static float Draw(float x, float y, GamepadButton button, float size = GLYPH_SIZE)
         {
-            // Measure text to decide width
+            Texture2D? tex = GamepadTex.GetTextureFor(button);
+            if (tex != null)
+            {
+                Rect glyphRect = new Rect(x, y, size, size);
+                GUI.DrawTexture(glyphRect, tex);
+                return x + size;
+            }
+
+            // Fallback text rendering
+            string text = button.ToString();
+            if (button == GamepadButton.Dpad) text = "D-Pad";
+            else if (button == GamepadButton.LBRB) text = "LB/RB";
+
             var prevFont = Text.Font;
             Text.Font = GameFont.Tiny;
-            float textW = Text.CalcSize(button).x;
+            float textW = Text.CalcSize(text).x;
             Text.Font = prevFont;
 
             float padding = 8f;
             float width = Mathf.Max(size, textW + padding);
 
-            Rect glyphRect = new Rect(x, y, width, size);
+            Rect rect = new Rect(x, y, width, size);
 
             GUI.color = GlyphBg;
             if (width <= size + 2f)
             {
-                // Circle fits for short labels (A, B, X, Y, etc.)
-                GUI.DrawTexture(glyphRect, CircleTex);
+                GUI.DrawTexture(rect, CircleTex);
             }
             else
             {
-                // Pill / rounded rect for long labels (D-Pad, LB/RB, etc.)
-                GUI.DrawTexture(glyphRect, ConsoleStyle.RoundedRectTex, ScaleMode.StretchToFill);
+                GUI.DrawTexture(rect, ConsoleStyle.RoundedRectTex, ScaleMode.StretchToFill);
                 GUI.color = GlyphBorder;
-                Widgets.DrawBox(glyphRect, 1);
-                GUI.color = Color.white;
+                Widgets.DrawBox(rect, 1);
             }
 
             var prevAnchor = Text.Anchor;
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = GlyphText;
-            Widgets.Label(glyphRect, button);
+            Widgets.Label(rect, text);
             Text.Font = prevFont;
             Text.Anchor = prevAnchor;
             GUI.color = Color.white;
@@ -87,7 +96,7 @@ namespace PeskyGizmo
             return x + width;
         }
 
-        public static float DrawWithLabel(float x, float y, string button, string label, float glyphSize = GLYPH_SIZE)
+        public static float DrawWithLabel(float x, float y, GamepadButton button, string label, float glyphSize = GLYPH_SIZE)
         {
             float right = Draw(x, y, button, glyphSize);
             if (string.IsNullOrEmpty(label)) return right + 4f;
@@ -96,7 +105,7 @@ namespace PeskyGizmo
             return right + 4f + Text.CalcSize(label).x;
         }
 
-        public static void DrawPromptBar(Rect container, params (string button, string label)[] prompts)
+        public static void DrawPromptBar(Rect container, params (GamepadButton button, string label)[] prompts)
         {
             float spacing = 16f;
             float totalWidth = 0f;
@@ -128,14 +137,20 @@ namespace PeskyGizmo
             }
         }
 
-        private static float MeasureGlyphWidth(string button)
+        private static float MeasureGlyphWidth(GamepadButton button)
         {
+            if (GamepadTex.GetTextureFor(button) != null)
+                return GLYPH_SIZE;
+
+            string text = button.ToString();
+            if (button == GamepadButton.Dpad) text = "D-Pad";
+            else if (button == GamepadButton.LBRB) text = "LB/RB";
+
             var prevFont = Text.Font;
             Text.Font = GameFont.Tiny;
-            float textW = Text.CalcSize(button).x;
+            float textW = Text.CalcSize(text).x;
             Text.Font = prevFont;
-            float padding = 8f;
-            return Mathf.Max(GLYPH_SIZE, textW + padding);
+            return Mathf.Max(GLYPH_SIZE, textW + 8f);
         }
     }
 }

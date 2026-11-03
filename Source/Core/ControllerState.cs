@@ -1,3 +1,4 @@
+using Brutal.GlfwApi;
 using UnityEngine;
 using Verse;
 
@@ -98,7 +99,9 @@ namespace PeskyGizmo
 
         public static float CameraSensitivity => GizmoMod.Settings?.cameraSensitivity ?? 50f;
         public static float CursorSensitivity => GizmoMod.Settings?.cursorSensitivity ?? 1200f;
-        public static float AimAssistStrength => GizmoMod.Settings?.aimAssistStrength ?? 0.5f;
+        
+        public static float StickCurve => GizmoMod.Settings?.stickCurve ?? 1.8f;
+
         public static float InnerDeadzone => GizmoMod.Settings?.innerDeadzone ?? 0.15f;
 
         public static void UpdateDpadEdges()
@@ -120,50 +123,55 @@ namespace PeskyGizmo
 
             if (GizmoMod.Settings != null)
             {
-                bool aDown = IsButtonDown(GizmoMod.Settings.btnA);
+                int aIdx = GizmoMod.Settings.useNintendoLayout ? (int)GlfwGamepadButton.B : (int)GlfwGamepadButton.A;
+                int bIdx = GizmoMod.Settings.useNintendoLayout ? (int)GlfwGamepadButton.A : (int)GlfwGamepadButton.B;
+                int xIdx = GizmoMod.Settings.useNintendoLayout ? (int)GlfwGamepadButton.Y : (int)GlfwGamepadButton.X;
+                int yIdx = GizmoMod.Settings.useNintendoLayout ? (int)GlfwGamepadButton.X : (int)GlfwGamepadButton.Y;
+
+                bool aDown = IsButtonDown(aIdx);
                 ButtonAEdge = aDown && !_prevA;
                 _prevA = aDown;
 
-                bool bDown = IsButtonDown(GizmoMod.Settings.btnB);
+                bool bDown = IsButtonDown(bIdx);
                 ButtonBEdge = bDown && !_prevB;
                 _prevB = bDown;
 
                 if (bDown) ButtonBHeldDuration += Time.unscaledDeltaTime;
                 else ButtonBHeldDuration = 0f;
 
-                bool xDown = IsButtonDown(GizmoMod.Settings.btnX);
+                bool xDown = IsButtonDown(xIdx);
                 ButtonXEdge = xDown && !_prevX;
                 _prevX = xDown;
 
-                bool yDown = IsButtonDown(GizmoMod.Settings.btnY);
+                bool yDown = IsButtonDown(yIdx);
                 ButtonYEdge = yDown && !_prevY;
                 _prevY = yDown;
 
-                bool lbDown = IsButtonDown(GizmoMod.Settings.btnLB);
+                bool lbDown = IsButtonDown((int)GlfwGamepadButton.LeftBumper);
                 ButtonLBEdge = lbDown && !_prevLB;
                 _prevLB = lbDown;
 
-                bool rbDown = IsButtonDown(GizmoMod.Settings.btnRB);
+                bool rbDown = IsButtonDown((int)GlfwGamepadButton.RightBumper);
                 ButtonRBEdge = rbDown && !_prevRB;
                 _prevRB = rbDown;
 
-                bool startDown = IsButtonDown(GizmoMod.Settings.btnStart);
+                bool startDown = IsButtonDown((int)GlfwGamepadButton.Start);
                 ButtonStartEdge = startDown && !_prevStart;
                 _prevStart = startDown;
 
-                bool backDown = IsButtonDown(GizmoMod.Settings.btnBack);
+                bool backDown = IsButtonDown((int)GlfwGamepadButton.Back);
                 ButtonBackEdge = backDown && !_prevBack;
                 _prevBack = backDown;
 
-                bool r3Down = IsButtonDown(GizmoMod.Settings.btnR3);
+                bool r3Down = IsButtonDown((int)GlfwGamepadButton.RightThumb);
                 ButtonR3Edge = r3Down && !_prevR3;
                 _prevR3 = r3Down;
 
-                bool l3Down = IsButtonDown(GizmoMod.Settings.btnL3);
+                bool l3Down = IsButtonDown((int)GlfwGamepadButton.LeftThumb);
                 ButtonL3Edge = l3Down && !_prevL3;
                 _prevL3 = l3Down;
 
-                bool ltDown = IsButtonDown(GizmoMod.Settings.btnLT);
+                bool ltDown = RadialTrigger > 0.15f;
                 ButtonLTEdge = ltDown && !_prevLT;
                 if (ButtonLTEdge) ModifierConsumed_LT = false;
                 if (ltDown) ButtonLTHoldDuration += Time.unscaledDeltaTime;
@@ -171,7 +179,7 @@ namespace PeskyGizmo
                 ButtonLTReleaseEdge = !ltDown && _prevLT;
                 _prevLT = ltDown;
 
-                bool rtDown = IsButtonDown(GizmoMod.Settings.btnRT);
+                bool rtDown = CursorTrigger > 0.15f;
                 ButtonRTEdge = rtDown && !_prevRT;
                 _prevRT = rtDown;
             }

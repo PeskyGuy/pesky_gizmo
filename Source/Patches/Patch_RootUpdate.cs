@@ -5,24 +5,13 @@ using Verse;
 
 namespace PeskyGizmo
 {
-    [HarmonyPatch(typeof(Root_Play), "Update")]
-    public static class Patch_RootPlayUpdate
-    {
-        public static void Postfix() => Patch_RootUpdate.SharedPostfix();
-    }
-
-    [HarmonyPatch(typeof(Root_Entry), "Update")]
-    public static class Patch_RootEntryUpdate
-    {
-        public static void Postfix() => Patch_RootUpdate.SharedPostfix();
-    }
-
+    [HarmonyPatch(typeof(Root), nameof(Root.Update))]
     public static class Patch_RootUpdate
     {
         private static bool _wasLoading;
         private static bool _mapWasSafe;
 
-        public static void SharedPostfix()
+        public static void Postfix()
         {
             if (LongEventHandler.ShouldWaitForEvent)
             {
@@ -52,9 +41,6 @@ namespace PeskyGizmo
                 return;
             }
 
-            // Calibration window owns all controller input while open.
-            if (Find.WindowStack.IsOpen<CalibrationWindow>())
-                return;
 
             // Detect manual mouse movement or physical click to switch back to mouse mode.
             // Simulated clicks coming from the controller (ReticleController -> SendInput)
@@ -78,17 +64,7 @@ namespace PeskyGizmo
 
                 if (mouseClicked || movementCandidate)
                 {
-                    // Bypassing = true => the get_mousePosition patch is skipped, so we get the real OS hardware mouse.
-                    Patch_Input_Global.Bypassing = true;
-                    Vector3 hardwarePos;
-                    try
-                    {
-                        hardwarePos = Input.mousePosition;
-                    }
-                    finally
-                    {
-                        Patch_Input_Global.Bypassing = false;
-                    }
+                    Vector3 hardwarePos = Input.mousePosition;
 
                     float distSq = movementCandidate
                         ? (hardwarePos - ControllerState.LastMousePos).sqrMagnitude
@@ -108,6 +84,11 @@ namespace PeskyGizmo
                         return;
                     }
                 }
+                else
+                {
+                    // Keep baseline synced to actual hardware position during grace/sync windows.
+                    ControllerState.LastMousePos = Input.mousePosition;
+                }
             }
 
             // Always reset sync flag for the current frame processing
@@ -119,15 +100,7 @@ namespace PeskyGizmo
             // When in controller mode, LastMousePos should retain the hardware position from grace period
             if (!ControllerState.UsingController)
             {
-                Patch_Input_Global.Bypassing = true;
-                try
-                {
-                    ControllerState.LastMousePos = Input.mousePosition;
-                }
-                finally
-                {
-                    Patch_Input_Global.Bypassing = false;
-                }
+                ControllerState.LastMousePos = Input.mousePosition;
             }
 
             if (!ControllerState.ControllerModeEnabled) return;
@@ -145,10 +118,6 @@ namespace PeskyGizmo
                 }
 
                 UnityEngine.Cursor.visible = false;
-                // Bypassing = true permanently: RimWorld always sees the real OS cursor.
-                // We position the OS cursor via SetCursorPos instead of patching Input.mousePosition.
-                // Mouse takeover detection temporarily flips bypass to read hardware delta.
-                Patch_Input_Global.Bypassing = true;
 
                 ConsoleHUD.HandleInput();
                 NavMenu.Tick();
@@ -171,8 +140,7 @@ namespace PeskyGizmo
                 // Skip entirely if ConsoleHUD already consumed B (e.g. InspectPanel backing
                 // out of Content mode), so we don't double-close the underlying window.
                 bool bConsumedByCancel = false;
-                if (ControllerState.ButtonBEdge && !ConsoleHUD.InputConsumed
-                    && !Find.WindowStack.IsOpen<CalibrationWindow>())
+                if (ControllerState.ButtonBEdge && !ConsoleHUD.InputConsumed)
                 {
                     // 1) Highest priority: leave the planet/world view back to the colony.
                     if (Current.ProgramState == ProgramState.Playing

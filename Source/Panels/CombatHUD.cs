@@ -56,7 +56,7 @@ namespace PeskyGizmo
         {
             GUI.BeginGroup(r);
             GUI.DrawTexture(new Rect(0, 0, r.width, r.height), TexUI.GrayBg);
-            bool ltHeld = ControllerState.IsButtonDown(GizmoMod.Settings.btnLT);
+            bool ltHeld = ControllerState.RadialTrigger > 0.15f;
 
             string moveLabel = ltHeld ? "Cover move" : "Move";
             DrawActionRow(new Rect(0, PAD, r.width, ROW_H), "A", moveLabel, MoveTargetLabel());

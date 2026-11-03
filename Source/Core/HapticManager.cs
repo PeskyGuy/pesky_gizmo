@@ -28,8 +28,18 @@ namespace PeskyGizmo
 
             _cooldowns[t] = Time.unscaledTime + _minGaps[t];
 
-            for (int i = 0; i < t; i++)
-                _cooldowns[i] = Mathf.Max(_cooldowns[i], Time.unscaledTime + _durations[t]);
+            float thisStrength = _strengths[t].L + _strengths[t].R;
+            for (int i = 0; i < 5; i++)
+            {
+                if (i != t)
+                {
+                    float otherStrength = _strengths[i].L + _strengths[i].R;
+                    if (thisStrength >= otherStrength)
+                    {
+                        _cooldowns[i] = Mathf.Max(_cooldowns[i], Time.unscaledTime + _durations[t]);
+                    }
+                }
+            }
 
             try
             {
@@ -47,6 +57,7 @@ namespace PeskyGizmo
         public static void Pawn_Selected()    => Trigger(HapticTier.ShortPulse);
         public static void Pawn_Drafted()     => Trigger(HapticTier.MediumRumble);
         public static void Combat_Melee()     => Trigger(HapticTier.MediumRumble);
+        public static void Combat_Ranged()    => Trigger(HapticTier.MediumRumble);
         public static void Combat_Downed()    => Trigger(HapticTier.HeavyRumble);
     }
 }

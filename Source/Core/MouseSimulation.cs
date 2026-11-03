@@ -70,7 +70,7 @@ namespace PeskyGizmo
             SetCursorPos(pt.X, pt.Y);
 
             ControllerState.IsSyncingMouse = true;
-            ControllerState.LastMousePos = new Vector3(ControllerState.CursorScreenPos.x, ControllerState.CursorScreenPos.y, 0);
+            ControllerDetector.HoldMouseSync(0.15f);
         }
 
 

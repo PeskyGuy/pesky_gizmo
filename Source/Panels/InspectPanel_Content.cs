@@ -57,7 +57,7 @@ namespace PeskyGizmo
             DrawBioInfoTooltip(_bioPopupRect);
 
             Rect promptRect = new Rect(popupRect.x + PANEL_MARGIN, contentBg.yMax + 8f, popupRect.width - PANEL_MARGIN * 2, PROMPT_HEIGHT);
-            GlyphRenderer.DrawPromptBar(promptRect, ("B", "Back"), ("LB/RB", "Tabs"), ("D-Pad", "Scroll"));
+            GlyphRenderer.DrawPromptBar(promptRect, (GamepadButton.B, "Back"), (GamepadButton.LBRB, "Tabs"), (GamepadButton.Dpad, "Scroll"));
         }
 
         // ---- tab content via reflection ----------------------------------------

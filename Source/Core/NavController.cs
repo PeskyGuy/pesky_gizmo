@@ -1,13 +1,38 @@
+using System;
 using UnityEngine;
 using Verse;
 
 namespace PeskyGizmo
 {
-    // INVARIANT: NavController is the single dispatcher for all nav panels.
-    // No file outside this class checks panel state or draws panels.
-    // Cursor visibility → AnyCursorHidingPanelOpen — nowhere else.
-    // Input dispatch priority → _panels order — nowhere else.
-    // Cursor snap → SnapCursorTo(Rect) — nowhere else.
+    public interface INavPanel
+    {
+        bool IsOpen { get; }
+        bool HidesCursor { get; }
+        void HandleInput();
+        void Draw();
+    }
+
+    public class NavPanelAdapter : INavPanel
+    {
+        private readonly Func<bool> _isOpen;
+        private readonly Func<bool> _hidesCursor;
+        private readonly Action _handleInput;
+        private readonly Action _draw;
+
+        public NavPanelAdapter(Func<bool> isOpen, Func<bool> hidesCursor, Action handleInput, Action draw)
+        {
+            _isOpen = isOpen;
+            _hidesCursor = hidesCursor;
+            _handleInput = handleInput;
+            _draw = draw;
+        }
+
+        public bool IsOpen => _isOpen();
+        public bool HidesCursor => _hidesCursor();
+        public void HandleInput() => _handleInput();
+        public void Draw() => _draw();
+    }
+
     public static class NavController
     {
         private static readonly INavPanel[] _panels =
@@ -18,17 +43,12 @@ namespace PeskyGizmo
             NavHelper.Instance,
         };
 
-        // Legacy-compat: used by NavHelper and Patch_RootUpdate to gate certain
-        // behaviours when any custom Commandable/Gizmo UI is active.
         public static bool IsCustomUIActive =>
             ConsoleHUD.ActivePanel != ConsolePanel.None
             || NavMenu.IsOpen
             || OverlayMenu.IsOpen
             || InspectPanel.AmbientFocused;
 
-        // INVARIANT: AnyCursorHidingPanelOpen is the single source of truth for
-        // cursor visibility. ReticleDrawer reads ONLY this — never checks panel
-        // state directly.
         public static bool AnyCursorHidingPanelOpen
         {
             get
@@ -59,14 +79,12 @@ namespace PeskyGizmo
 
         public static void CloseAll()
         {
-            if (NavMenu.IsOpen)      NavMenu.Close();
+            if (NavMenu.IsOpen) NavMenu.Close();
             if (ColonistPanel.IsOpen) ColonistPanel.Close();
             if (ConsoleHUD.ActivePanel != ConsolePanel.None)
                 ConsoleHUD.ActivePanel = ConsolePanel.None;
         }
 
-        // INVARIANT: CursorScreenPos is only written here in controller mode.
-        // No panel writes to CursorScreenPos directly. NavHelper calls SnapCursorToScreen.
         public static void SnapCursorTo(Rect localGuiRect)
         {
             if (Event.current?.type != EventType.Repaint) return;
@@ -74,11 +92,7 @@ namespace PeskyGizmo
 
             Vector2 screenCenter;
             try { screenCenter = GUIUtility.GUIToScreenPoint(localGuiRect.center); }
-            catch
-            {
-                // GUIUtility matrix not set during Layout events; safe to ignore
-                return;
-            }
+            catch { return; }
 
             Vector2 unityPos = new Vector2(screenCenter.x, Screen.height - screenCenter.y);
             if (Vector2.Distance(ControllerState.CursorScreenPos, unityPos) < 0.5f) return;

@@ -12,12 +12,16 @@ namespace PeskyGizmo
 
         public static bool IsInGracePeriod => Time.unscaledTime < _skipMouseCheckUntil;
 
+        public static void HoldMouseSync(float seconds)
+        {
+            if (Time.unscaledTime + seconds > _skipMouseCheckUntil)
+                _skipMouseCheckUntil = Time.unscaledTime + seconds;
+        }
+
         public static void ResetGracePeriod()
         {
             _skipMouseCheckUntil = Time.unscaledTime + 1.0f;
-            Patch_Input_Global.Bypassing = true;
-            try { ControllerState.LastMousePos = Input.mousePosition; }
-            finally { Patch_Input_Global.Bypassing = false; }
+            ControllerState.LastMousePos = Input.mousePosition;
         }
 
         public static string LastSafetyFailReason = "";
@@ -73,9 +77,7 @@ namespace PeskyGizmo
             if (currentMap != _lastMap)
             {
                 _lastMap = currentMap;
-                Patch_Input_Global.Bypassing = true;
-                try { ControllerState.LastMousePos = Input.mousePosition; }
-                finally { Patch_Input_Global.Bypassing = false; }
+                ControllerState.LastMousePos = Input.mousePosition;
                 _skipMouseCheckUntil = Time.unscaledTime + 2.0f;
                 Log.Message("[Gizmo] Map changed, resetting mouse baseline and entering grace period.");
             }
@@ -99,23 +101,22 @@ namespace PeskyGizmo
 
         private static void DetectGlyphSet()
         {
-            string[] names = Input.GetJoystickNames();
-            if (names.Length == 0)
+            string name = NativeInput.ControllerName.ToLowerInvariant();
+
+            if (string.IsNullOrEmpty(name))
             {
                 ControllerState.CurrentGlyphSet = GlyphSet.Generic;
                 return;
             }
 
-            string name = (names[0] ?? "").ToLowerInvariant();
-
             if (name.Contains("xbox") || name.Contains("xinput"))
                 ControllerState.CurrentGlyphSet = GlyphSet.Xbox;
-            else if (name.Contains("dualsense") || name.Contains("dualshock") || name.Contains("playstation") || name.Contains("sony"))
+            else if (name.Contains("dualsense") || name.Contains("dualshock") || name.Contains("playstation") || name.Contains("sony") || name.Contains("ps4") || name.Contains("ps5"))
                 ControllerState.CurrentGlyphSet = GlyphSet.PlayStation;
             else
                 ControllerState.CurrentGlyphSet = GlyphSet.Generic;
 
-            Log.Message($"[Gizmo] Glyph set: {ControllerState.CurrentGlyphSet} (device: \"{names[0]}\")");
+            Log.Message($"[Gizmo] Glyph set: {ControllerState.CurrentGlyphSet} (device: \"{NativeInput.ControllerName}\")");
         }
     }
 }

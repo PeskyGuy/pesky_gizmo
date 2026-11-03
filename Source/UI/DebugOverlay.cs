@@ -30,12 +30,9 @@ namespace PeskyGizmo
             Line($"LS ({lsLabel}): {ControllerState.CameraAxisX:F2} / {ControllerState.CameraAxisY:F2}");
             Line($"RS ({rsLabel}): {ControllerState.CursorAxisX:F2} / {ControllerState.CursorAxisY:F2}");
             Line($"LT: {ControllerState.RadialTrigger:F2}  RT: {ControllerState.CursorTrigger:F2}");
-            Line($"Cursor: {ControllerState.CursorScreenPos.x:F0}, {ControllerState.CursorScreenPos.y:F0}");
-            Line("---");
-
-            string B(int idx) => idx >= 0 && NativeInput.IsButtonDown(idx) ? $"[{idx}]" : $" {idx} ";
-            Line($"A:{B(s.btnA)}  B:{B(s.btnB)}  X:{B(s.btnX)}  Y:{B(s.btnY)}");
-            Line($"LB:{B(s.btnLB)} RB:{B(s.btnRB)} LT:{B(s.btnLT)} RT:{B(s.btnRT)}");
+            Line($"LeftClick:{ControllerState.SimLeftClick} RightClick:{ControllerState.SimRightClick}");
+            Line($"CamX:{ControllerState.CameraAxisX:F2} CamY:{ControllerState.CameraAxisY:F2}");
+            Line($"CurX:{ControllerState.CursorAxisX:F2} CurY:{ControllerState.CursorAxisY:F2}");
 
             int pov = NativeInput.RawPOV;
             string dpad = pov < 0 ? "center" : $"{pov / 100}deg";

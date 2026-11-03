@@ -148,18 +148,18 @@ namespace PeskyGizmo
                 var sel = Find.Selector;
                 if (sel == null || sel.NumSelected == 0) return;
 
-                var hints = new List<(string button, string label)>();
+                var hints = new System.Collections.Generic.List<(GamepadButton button, string label)>();
 
-                hints.Add(("B", "Deselect"));
+                hints.Add((GamepadButton.B, "Deselect"));
 
                 var colonists = sel.SelectedObjectsListForReading
-                    .OfType<Pawn>()
+                    .OfType<Verse.Pawn>()
                     .Where(p => p.IsColonistPlayerControlled && p.drafter != null)
                     .ToList();
                 if (colonists.Count > 0)
                 {
                     bool allDrafted = colonists.All(p => p.drafter.Drafted);
-                    hints.Add(("Y", allDrafted ? "Undraft" : "Draft"));
+                    hints.Add((GamepadButton.Y, allDrafted ? "Undraft" : "Draft"));
                 }
 
                 if (hints.Count == 0) return;
@@ -171,7 +171,7 @@ namespace PeskyGizmo
                 float barY = Verse.UI.screenHeight - 35f - barH - 6f;
 
                 Rect bgRect = new Rect(barX - 8f, barY - 4f, totalW + 16f, barH + 8f);
-                Widgets.DrawBoxSolid(bgRect, new Color(0.06f, 0.06f, 0.08f, 0.72f));
+                Verse.Widgets.DrawBoxSolid(bgRect, new UnityEngine.Color(0.06f, 0.06f, 0.08f, 0.72f));
 
                 GlyphRenderer.DrawPromptBar(new Rect(barX, barY, totalW, barH), hints.ToArray());
             }

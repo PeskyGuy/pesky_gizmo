@@ -147,7 +147,7 @@ namespace PeskyGizmo
 
             // Prompt bar
             Rect prompt = new Rect(panelX + PADDING, panelRect.yMax - PADDING - PROMPT_H, PANEL_W - PADDING * 2, PROMPT_H);
-            GlyphRenderer.DrawPromptBar(prompt, ("B", "Back"), ("A", "Select"));
+            GlyphRenderer.DrawPromptBar(prompt, (GamepadButton.B, "Back"), (GamepadButton.A, "Select"));
         }
     }
 }
